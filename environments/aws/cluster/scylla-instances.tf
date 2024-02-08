@@ -1,5 +1,5 @@
 resource "aws_instance" "scylladb" {
-  count           = var.scylla_num_nodes
+  count           = var.scylla_node_count
   ami             = var.ami_id # Replace with your desired AMI
   instance_type   = var.instance_type
   key_name        = var.aws_key_pair_name     # Replace with your EC2 key pair name
