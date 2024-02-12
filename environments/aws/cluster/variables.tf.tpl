@@ -26,7 +26,7 @@ variable "ssh_private_key" {
 variable "aws_key_pair_name" {
   description = "Key pair name in AWS"
   type        = string
-  default     = " {{ aws_key_pair_name }}"
+  default     = "{{ aws_key_pair_name }}"
 }
 
 variable "aws_region" {
@@ -62,7 +62,7 @@ variable "instance_username" {
 variable "monitoring_instance_type" {
   description = "Type of the EC2 instance"
   type        = string
-  default     = " {{ monitoring_instance_type }}"
+  default     = "{{ monitoring_instance_type }}"
 }
 
 
@@ -116,7 +116,3 @@ variable "loader_node_count" {
   default     = "{{ loader_node_count }}"
 }
 
-locals {
-  scylla_ips  = (join(",", [for s in scylladbcloud_cluster.scylladbcloud.node_private_ips : format("%s", s)]))
-  scylla_pass = data.scylladbcloud_cql_auth.scylla.password
-}

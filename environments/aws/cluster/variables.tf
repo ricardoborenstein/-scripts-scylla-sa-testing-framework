@@ -26,7 +26,7 @@ variable "ssh_private_key" {
 variable "aws_key_pair_name" {
   description = "Key pair name in AWS"
   type        = string
-  default     = " ricardo-terraform"
+  default     = "ricardo-terraform"
 }
 
 variable "aws_region" {
@@ -46,7 +46,7 @@ variable "instance_type" {
 variable "ami_id" {
   description = "AMI ID for the EC2 instance"
   type        = string
-  default     = "ami-0bca3ed0b1ef2f2fa"             # Amazon Machine Image ID for the instances"
+  default     = "ami-0c7217cdde317cfec"             # Amazon Machine Image ID for the instances"
 }
 
 
@@ -62,7 +62,7 @@ variable "instance_username" {
 variable "monitoring_instance_type" {
   description = "Type of the EC2 instance"
   type        = string
-  default     = " m5.2xlarge"   # Type for the monitoring EC2 instance"
+  default     = "m5.2xlarge"   # Type for the monitoring EC2 instance"
 }
 
 
@@ -111,12 +111,8 @@ variable "scylla_node_count" {
 
 # Number of Loaders instances to create
 variable "loader_node_count" {
-  description = "Number of ScyllaDB instances to create"
+  description = "Number of Loader instances to create"
   type        = string
   default     = "3"                   # Number of loaders nodes to deploy"
 }
 
-locals {
-  scylla_ips  = (join(",", [for s in scylladbcloud_cluster.scylladbcloud.node_private_ips : format("%s", s)]))
-  scylla_pass = data.scylladbcloud_cql_auth.scylla.password
-}

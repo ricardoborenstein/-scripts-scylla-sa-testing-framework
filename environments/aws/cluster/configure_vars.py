@@ -19,7 +19,9 @@ with open(TEMPLATE_FILE, "r") as template_file:
     content = template_file.read()
     for key, value in variables.items():
         # Directly replace placeholders in the template without escaping
-        content = re.sub(f"\\{{{{ {key} \\}}}}", value, content)
+        # Ensure to trim the variable values to remove any leading/trailing whitespace
+        trimmed_value = value.strip()
+        content = re.sub(f"\\{{{{ {key} \\}}}}", trimmed_value, content)
 
 # Write the updated content to the output file
 with open(OUTPUT_FILE, "w") as output_file:
