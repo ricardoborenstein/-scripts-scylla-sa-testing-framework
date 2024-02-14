@@ -35,8 +35,15 @@ variable "aws_region" {
   default     = "{{ aws_region }}"
 }
 
-# EC2 instance type
-variable "instance_type" {
+# Scylla instance type
+variable "scylla_instance_type" {
+  description = "Type of the EC2 instance"
+  type        = string
+  default     = "{{ scylla_instance_type }}"
+}
+
+# Loader instance type
+variable "loader_instance_type" {
   description = "Type of the EC2 instance"
   type        = string
   default     = "{{ loader_instance_type }}"
@@ -49,6 +56,18 @@ variable "ami_id" {
   default     = "{{ ami }}"
 }
 
+# Virtual Private Cloud (VPC) IP range
+variable "custom_vpc" {
+  description = "CIDR block for the VPC"
+  type        = string
+  default     = "{{ CIDR }}"
+}
+# SUBNET Count
+variable "subnet_count" {
+  description = "Type of the EC2 instance"
+  type        = string
+  default     = "{{ subnet_count }}"   
+}
 
 # Amazon Machine Image (AMI) Username
 variable "instance_username" {

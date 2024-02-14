@@ -35,26 +35,45 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
-# EC2 instance type
-variable "instance_type" {
+# Scylla instance type
+variable "scylla_instance_type" {
   description = "Type of the EC2 instance"
   type        = string
-  default     = "i4i.2xlarge"       # Type of the loader EC2 instance"
+  default     = "i4i.2xlarge"
+}
+
+# Loader instance type
+variable "loader_instance_type" {
+  description = "Type of the EC2 instance"
+  type        = string
+  default     = "m5.2xlarge"
 }
 
 # Amazon Machine Image (AMI) ID
 variable "ami_id" {
   description = "AMI ID for the EC2 instance"
   type        = string
-  default     = "ami-0c7217cdde317cfec"             # Amazon Machine Image ID for the instances"
+  default     = "ami-0c7217cdde317cfec"
 }
 
+# Virtual Private Cloud (VPC) IP range
+variable "custom_vpc" {
+  description = "CIDR block for the VPC"
+  type        = string
+  default     = "10.0.0.0/16"
+}
+# SUBNET Count
+variable "subnet_count" {
+  description = "Type of the EC2 instance"
+  type        = string
+  default     = "3"   
+}
 
 # Amazon Machine Image (AMI) Username
 variable "instance_username" {
   description = "username for the AMI"
   type        = string
-  default     = "ubuntu"              # Default username for the instance"
+  default     = "ubuntu"
 }
 
 
@@ -62,7 +81,7 @@ variable "instance_username" {
 variable "monitoring_instance_type" {
   description = "Type of the EC2 instance"
   type        = string
-  default     = "m5.2xlarge"   # Type for the monitoring EC2 instance"
+  default     = "m5.2xlarge"
 }
 
 
@@ -77,28 +96,28 @@ variable "monitoring_instance_type" {
 variable "num_threads" {
   description = "Number of threads for the Cassandra stress tool"
   type        = string
-  default     = "128"                       # Number of threads for the benchmarking tool"
+  default     = "128"
 }
 
 # Total number of operations to run
 variable "num_of_ops" {
   description = "Total number of operations to run"
   type        = string
-  default     = "46B"                        # Total number of operations to perform"
+  default     = "46B"
 }
 
 # Throttling for the Cassandra stress tool
 variable "throttle" {
   description = "Throttling for the Cassandra stress tool (in ops/sec)"
   type        = string
-  default     = "100000/s"                     # Throttling for operations per second"
+  default     = "100000/s"
 }
 
 # Environment name
 variable "custom_name" {
   description = "Name for the ScyllaDB Cloud environment"
   type        = string
-  default     = "Ricardo-Benchmark"         # Custom name for the benchmarking setup"
+  default     = "Ricardo-Benchmark"
 }
 
 
@@ -106,13 +125,13 @@ variable "custom_name" {
 variable "scylla_node_count" {
   description = "Number of ScyllaDB instances to create"
   type        = string
-  default     = "3"                   # Number of ScyllaDB nodes to deploy"
+  default     = "3"
 }
 
 # Number of Loaders instances to create
 variable "loader_node_count" {
-  description = "Number of Loader instances to create"
+  description = "Number of ScyllaDB instances to create"
   type        = string
-  default     = "3"                   # Number of loaders nodes to deploy"
+  default     = "3"
 }
 

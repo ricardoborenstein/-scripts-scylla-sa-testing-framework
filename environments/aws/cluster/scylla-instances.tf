@@ -1,7 +1,7 @@
 resource "aws_instance" "scylladb" {
   count           = var.scylla_node_count
   ami             = var.ami_id # Replace with your desired AMI
-  instance_type   = var.instance_type
+  instance_type   = var.scylla_instance_type
   key_name        = var.aws_key_pair_name     # Replace with your EC2 key pair name
 
   subnet_id       = element(aws_subnet.public_subnet.*.id, count.index)  # Assign to a subnet within the VPC
