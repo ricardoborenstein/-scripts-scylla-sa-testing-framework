@@ -64,7 +64,8 @@ resource "aws_route" "public_route" {
 
 # Create Public Route Table Association
 resource "aws_route_table_association" "public_rt_association" {
+  count = var.subnet_count
   route_table_id = aws_route_table.public_rt.id
-  subnet_id      = aws_subnet.public_subnet[0].id
+  subnet_id      = aws_subnet.public_subnet[count.index].id
 }
 

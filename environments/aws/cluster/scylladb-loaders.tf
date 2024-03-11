@@ -63,20 +63,20 @@ resource "aws_instance" "instance" {
 }
 
 
-# Create three Elastic IPs
-resource "aws_eip" "eip" {
-  count            = length(aws_instance.instance.*.id)               # Create an Elastic IP for each EC2 instance
-  instance         = element(aws_instance.instance.*.id, count.index) # Associate the Elastic IP with the current EC2 instance
-  public_ipv4_pool = "amazon"                                         # Use the Amazon pool for public IPv4 addresses
+# # Create three Elastic IPs
+# resource "aws_eip" "eip" {
+#   count            = length(aws_instance.instance.*.id)               # Create an Elastic IP for each EC2 instance
+#   instance         = element(aws_instance.instance.*.id, count.index) # Associate the Elastic IP with the current EC2 instance
+#   public_ipv4_pool = "amazon"                                         # Use the Amazon pool for public IPv4 addresses
 
-  tags = { # Add tags to the Elastic IP resource
-    "Name" = "${var.custom_name}-EIP-${count.index}"
-  }
-}
+#   tags = { # Add tags to the Elastic IP resource
+#     "Name" = "${var.custom_name}-EIP-${count.index}"
+#   }
+# }
 
-# Create EIP association with EC2 Instances
-resource "aws_eip_association" "eip_association" {
-  count         = length(aws_eip.eip)                              # Associate each Elastic IP with an EC2 instance
-  instance_id   = element(aws_instance.instance.*.id, count.index) # Associate the current Elastic IP with the current EC2 instance
-  allocation_id = element(aws_eip.eip.*.id, count.index)           # Associate the current Elastic IP with the current allocation ID
-}
+# # Create EIP association with EC2 Instances
+# resource "aws_eip_association" "eip_association" {
+#   count         = length(aws_eip.eip)                              # Associate each Elastic IP with an EC2 instance
+#   instance_id   = element(aws_instance.instance.*.id, count.index) # Associate the current Elastic IP with the current EC2 instance
+#   allocation_id = element(aws_eip.eip.*.id, count.index)           # Associate the current Elastic IP with the current allocation ID
+# }
