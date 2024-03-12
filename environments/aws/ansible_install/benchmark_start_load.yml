@@ -1,0 +1,13 @@
+- name: Initiate ingestion for benchmark
+  hosts: aws_loader
+  tasks:
+    - name: Copy cs.yaml to loader servers
+      copy:
+        src: ../../benchmark/cs.yaml
+        dest: cs.yaml
+    - name: Start cassandra-stress on all loaders in parallel
+      shell: |
+        export SERVER_IP=`ip -4 -br a |  awk -F"[/ ]+" '$1!~/lo|virb|docker|br/&&$2~/UP/{print $3;exit}'`
+        export FIX=50000/s
+        export IPS="{{ hostvars[groups['scylla'][0]]['private_ip_address'] }},{{ hostvars[groups['scylla'][1]]['private_ip_address'] }},{{ hostvars[groups['scylla'][2]]['private_ip_address'] }}"
+        cassandra-stress user profile=cs.yaml n=150000000 cl=local_quorum 'ops(insert=1)' -mode native cql3 -rate threads=512 fixed=$FIX -log file=testwrite_50k_150M_2Load_512T_$SERVER_IP.log -node $IPS 

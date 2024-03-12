@@ -43,6 +43,17 @@ if [ "$provider" == "aws" ]; then
     terraform init
     # Apply the Terraform configuration
     terraform apply
+    cd ../ansible_install
+    python3 configure_vars_ansible.py
+    # Install Scylla
+    set -e
+    ansible-playbook install_scylla.yml
+    ansible-playbook get_monitoring_config.yml
+    ansible-playbook install_monitoring.yml
+    ansible-playbook install_loader.yml
+    set +e
+    echo "System is ready for testing."
+    echo -e "If you want to run benchmark now, start by loading data:\n cd ${PWD}; ansible-playbook benchmark_start_load.yml;"
 # Check if the provider is GCP
 elif [ "$provider" == "gcp" ]; then
     cd $provider/cluster/

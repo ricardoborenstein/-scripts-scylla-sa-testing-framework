@@ -1,0 +1,31 @@
+---
+keyspace: kvtest
+
+keyspace_definition: |
+  CREATE KEYSPACE kvtest WITH replication = {'class': 'NetworkTopologyStrategy', 'replication_factor': 3};
+
+table: kvexample
+
+table_definition: |
+  CREATE TABLE kvexample (
+    key text,
+    val text,
+    PRIMARY KEY (key,val)
+  ) with compression = {'sstable_compression': 'LZ4Compressor' } ;
+
+columnspec:
+  - name: key
+    size: FIXED(150)
+    population: seq(1..1333333333) # seq(1333333334..2666666667)  seq(2666666668..4000000000) We modify/split the sequences across loaders,
+  - name: val
+    size: fixed(150)
+
+insert:
+  partitions: fixed(1)
+  batchtype: UNLOGGED
+  select: fixed(1)/1
+
+queries:
+  simple1:
+    cql: select * from kvexample where key = ? limit 10
+    fields: samerow

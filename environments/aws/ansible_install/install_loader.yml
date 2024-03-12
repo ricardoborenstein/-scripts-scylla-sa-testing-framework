@@ -1,0 +1,23 @@
+- name: Install loader tools
+  hosts: aws_loader
+  tasks:
+    - name: Ensure required tools are present
+      apt: 
+        name: gpg, curl
+        state: latest
+        update_cache: yes
+      become: yes
+    
+    - name: Install scylla keys and repo
+      shell: |
+        mkdir -p /etc/apt/keyrings
+        gpg --homedir /tmp --no-default-keyring --keyring /etc/apt/keyrings/scylladb.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys d0a112e067426ab2
+        curl -L --output /etc/apt/sources.list.d/scylla.list http://downloads.scylladb.com/deb/ubuntu/scylla-2024.1.list
+      become: yes
+
+    - name: Install scylla's version of cassandra-stress
+      apt: 
+        name: scylla-enterprise-tools
+        state: latest
+        update_cache: yes
+      become: yes

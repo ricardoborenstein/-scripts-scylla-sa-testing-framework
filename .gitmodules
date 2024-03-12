@@ -1,0 +1,3 @@
+[submodule "environments/aws/ansible_install/roles"]
+	path = environments/aws/ansible_install/roles
+	url = https://github.com/scylladb/scylla-ansible-roles.git
