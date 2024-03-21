@@ -53,9 +53,22 @@ variable "loader_instance_type" {
 variable "ami_id" {
   description = "AMI ID for the EC2 instance"
   type        = string
-  default     = "{{ ami }}"
+  default     = "{{ ami_id }}"
 }
 
+# Scylla (AMI) ID
+variable "scylla_ami_id" {
+  description = "AMI ID for the EC2 instance"
+  type        = string
+  default     = "{{ scylla_ami_id }}"
+}
+
+
+variable "gpg_keys_scylla" {
+  description = "gpg key for scylla"
+  type        = string
+  default     = "{{ gpg_keys_scylla }}"
+}
 # Virtual Private Cloud (VPC) IP range
 variable "custom_vpc" {
   description = "CIDR block for the VPC"

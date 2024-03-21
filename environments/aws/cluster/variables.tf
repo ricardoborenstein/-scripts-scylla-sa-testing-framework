@@ -39,7 +39,7 @@ variable "aws_region" {
 variable "scylla_instance_type" {
   description = "Type of the EC2 instance"
   type        = string
-  default     = "i4i.xlarge"
+  default     = "i4i.2xlarge"
 }
 
 # Loader instance type
@@ -53,9 +53,22 @@ variable "loader_instance_type" {
 variable "ami_id" {
   description = "AMI ID for the EC2 instance"
   type        = string
-  default     = "ami-0c7217cdde317cfec"
+  default     = "ami-0e21465cede02fd1e"
 }
 
+# Scylla (AMI) ID
+variable "scylla_ami_id" {
+  description = "AMI ID for the EC2 instance"
+  type        = string
+  default     = "ami-0d5a0ef6e53048c88"
+}
+
+
+variable "gpg_keys_scylla" {
+  description = "gpg key for scylla"
+  type        = string
+  default     = "d0a112e067426ab2"
+}
 # Virtual Private Cloud (VPC) IP range
 variable "custom_vpc" {
   description = "CIDR block for the VPC"
@@ -66,7 +79,7 @@ variable "custom_vpc" {
 variable "subnet_count" {
   description = "Type of the EC2 instance"
   type        = string
-  default     = "3"   
+  default     = "1"   
 }
 
 # Amazon Machine Image (AMI) Username
@@ -125,13 +138,13 @@ variable "custom_name" {
 variable "scylla_node_count" {
   description = "Number of ScyllaDB instances to create"
   type        = string
-  default     = "9"
+  default     = "3"
 }
 
 # Number of Loaders instances to create
 variable "loader_node_count" {
   description = "Number of ScyllaDB instances to create"
   type        = string
-  default     = "3"
+  default     = "1"
 }
 

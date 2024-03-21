@@ -79,7 +79,7 @@ locals {
 }
 
 resource "aws_security_group" "sg" {
-  name        = var.custom_name
+  name        = "${var.custom_name}-sg"
   description = "Allow TLS inbound traffic"
   vpc_id      = aws_vpc.custom_vpc.id
   egress = [

@@ -37,6 +37,8 @@ fi
 
 # Check if the provider is AWS
 if [ "$provider" == "aws" ]; then
+    set -e
+    export AWS_PROFILE=DevOpsAccessRole
     cd $provider/cluster/
     python3 configure_vars.py
     # Initialize Terraform (download providers, etc.)
