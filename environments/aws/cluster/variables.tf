@@ -53,7 +53,7 @@ variable "loader_instance_type" {
 variable "ami_id" {
   description = "AMI ID for the EC2 instance"
   type        = string
-  default     = "ami-0e21465cede02fd1e"
+  default     = "ami-053053586808c3e70"
 }
 
 # Scylla (AMI) ID
