@@ -45,6 +45,7 @@ if [ "$provider" == "aws" ]; then
     terraform init
     # Apply the Terraform configuration
     terraform apply
+    sleep 20
     cd ../ansible_install
     python3 configure_vars_ansible.py
     # Install Scylla

@@ -46,7 +46,7 @@ resource "aws_instance" "scylladb_nonseeds" {
          "seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider",
                             "parameters": [{"seeds": "${aws_instance.scylladb_seed[0].private_ip}"}]}],
         },
-    "start_scylla_on_first_boot": true
+    "start_scylla_on_first_boot": false
 }
 EOF
   depends_on = [aws_instance.scylladb_seed]

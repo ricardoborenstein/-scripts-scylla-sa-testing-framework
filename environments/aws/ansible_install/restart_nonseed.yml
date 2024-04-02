@@ -1,11 +1,41 @@
-- name: Restarting Scylla NonSeeds
+---
+- name: Restart Scylla Server on NonSeed Nodes
   hosts: scylla_nonseed
-  any_errors_fatal: true
+  become: yes  # This playbook needs to run with sudo to manage system services
   tasks:
-    - name: Restart Scylla service on non-seed nodes
+    - name: Stop the Scylla service
+      ansible.builtin.systemd:
+        name: scylla-server
+        state: stopped
+
+    # - name: Sleep for a random time between 5 and 30 seconds
+    #   ansible.builtin.pause:
+    #     seconds: "{{ 5 + range(26) | random }}"
+
+
+    - name: Start the Scylla service
+      ansible.builtin.systemd:
+        name: scylla-server
+        state: started
+
+    - name: Get Scylla server service status
       ansible.builtin.shell: |
-        sudo systemctl restart scylla-server
-      # Add a delay between restarts to ensure they happen one by one
-      throttle: 1
-      # Delay of 30 seconds between each execution to ensure sequential restarts
-      delay: 30
+        systemctl is-active scylla-server
+      register: scylla_service_status
+      failed_when: scylla_service_status.rc not in [0, 3] # Active or inactive are acceptable; others are failures.
+
+    - name: Wait for Scylla server to enter 'serving' state
+      ansible.builtin.shell: |
+        systemctl status scylla-server | grep -q "Status: \"serving\""
+      register: scylla_serving_status
+      until: scylla_serving_status.rc == 0
+      retries: 15
+      delay: 10
+      ignore_errors: yes
+
+    - name: Restart Scylla server if status is failed
+      ansible.builtin.systemd:
+        name: scylla-server
+        state: restarted
+      when: scylla_service_status.stdout == "failed"
+
