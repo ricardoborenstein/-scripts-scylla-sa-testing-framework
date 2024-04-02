@@ -50,6 +50,7 @@ if [ "$provider" == "aws" ]; then
     # Install Scylla
     set -e
     #ansible-playbook install_scylla.yml
+    ansible-playbook restart_nonseed.yml
     ansible-playbook get_monitoring_config.yml
     ansible-playbook install_monitoring.yml
     ansible-playbook install_loader.yml

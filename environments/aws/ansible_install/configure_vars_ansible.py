@@ -6,6 +6,8 @@ ANSIBLE_INVENTORY_TEMPLATE_FILE = "./scylla.aws_ec2.yaml.tpl"
 ANSIBLE_INVENTORY_OUTPUT_FILE = "./inventory/scylla.aws_ec2.yaml"
 ANSIBLE_CONFIG_TEMPLATE_FILE = "./ansible.cfg.tpl"
 ANSIBLE_CONFIG_OUTPUT_FILE = "./ansible.cfg"
+ANSIBLE_GET_MONITORING_CONFIG_FILE = "./get_monitoring_config.yml.tpl"
+ANSIBLE_GET_MONITORING_CONFIG_OUTPUT_FILE = "./get_monitoring_config.yml"
 
 # Function to clean variable values
 def clean_value(value):
@@ -54,6 +56,10 @@ write_output_file(ANSIBLE_INVENTORY_OUTPUT_FILE, content)
 
 content = load_template_file(ANSIBLE_CONFIG_TEMPLATE_FILE, variables)
 write_output_file(ANSIBLE_CONFIG_OUTPUT_FILE, content)
+
+content = load_template_file(ANSIBLE_GET_MONITORING_CONFIG_FILE, variables)
+write_output_file(ANSIBLE_GET_MONITORING_CONFIG_OUTPUT_FILE, content)
+
 
 
 # # Process the template file

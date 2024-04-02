@@ -8,9 +8,10 @@ resource "aws_instance" "scylladb_seed" {
   security_groups = [aws_security_group.sg.id]  # Replace with your VPC security group ID
 
   tags = {
-    Name = "${var.custom_name}-ScyllaDBInstance-${count.index}"
+    Name = "${var.custom_name}-ScyllaDBInstance-Seed-${count.index}"
     "Project"   = "${var.custom_name}"
     "Type" =  "Scylla"
+    "Group" = "Seed"
   }
 
   user_data = <<EOF
@@ -36,6 +37,7 @@ resource "aws_instance" "scylladb_nonseeds" {
     Name = "${var.custom_name}-ScyllaDBInstance-${count.index}"
     "Project"   = "${var.custom_name}"
     "Type" =  "Scylla"
+    "Group" = "NonSeed"
   }
   user_data = <<EOF
 {

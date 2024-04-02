@@ -1,0 +1,11 @@
+- name: Restarting Scylla NonSeeds
+  hosts: scylla_nonseed
+  any_errors_fatal: true
+  tasks:
+    - name: Restart Scylla service on non-seed nodes
+      ansible.builtin.shell: |
+        sudo systemctl restart scylla-server
+      # Add a delay between restarts to ensure they happen one by one
+      throttle: 1
+      # Delay of 30 seconds between each execution to ensure sequential restarts
+      delay: 30
