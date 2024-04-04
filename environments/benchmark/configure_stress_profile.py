@@ -106,6 +106,15 @@ def construct_cassandra_stress_cmd(nodes, variables, queries):
     cmd = f"cassandra-stress user profile=stress.yaml no-warmup cl=local_quorum {ops_part} n={variables['num_of_ops']} -rate threads={variables['num_threads']} fixed={variables['throttle']} -node {nodes_part} -mode native cql3"
     return cmd
 
+def construct_insert_only_cassandra_stress_cmd(nodes, variables):
+    # Directly use the write operations count for inserts
+    # Constructing the ops part of the command specifically for insert operations
+    ops_part = f"ops\(insert=1\)"
+
+    nodes_part = ",".join(nodes)
+    cmd = f"cassandra-stress user profile=stress.yaml no-warmup cl=local_quorum {ops_part} n={variables['num_of_ops']} -rate threads={variables['num_threads']} fixed={variables['throttle']} -node {nodes_part} -mode native cql3"
+    return cmd
+
 
 
 # Assuming paths
