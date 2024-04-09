@@ -25,7 +25,7 @@ table_definition: |
 
 columnspec:
   - name: device_id
-    population: UNIFORM(1..4M)  # Simulate a wide range of device IDs
+    population: UNIFORM(1..100M)  # Simulate a wide range of device IDs
   - name: bucket_id
     population: UNIFORM(1..1825)  # Simulate a range of 5y - bucketing by dd-yyyy
   - name: show_id

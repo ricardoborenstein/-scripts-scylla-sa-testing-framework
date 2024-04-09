@@ -8,11 +8,24 @@
         name: scylla-server
         state: stopped
 
+    - name: Wait for a random time up to 20 seconds on the instance
+      ansible.builtin.shell:
+        cmd: sudo systemctl start scylla-server && sleep 60
+      changed_when: false
+      throttle: 1
+
     - name: Start the Scylla service
       ansible.builtin.systemd:
         name: scylla-server
         state: started
 
+    - name: Wait for Scylla server to enter 'serving' state
+      ansible.builtin.shell: |
+        until systemctl status scylla-server | grep -q "Status: \"serving\""; do sleep 10; done
+      async: 180
+      poll: 10
+      # This task waits up to 3 minutes (180 seconds), checking every 10 seconds, for the Scylla server to report it is in a 'serving' state.
+   
     - name: Check if Scylla service is active
       ansible.builtin.command: systemctl is-active scylla-server
       register: scylla_service_active
@@ -25,10 +38,3 @@
         state: restarted
       when: scylla_service_active.stdout != "active"
       # This task restarts the Scylla server if the previous check finds the service is not active.
-
-    - name: Wait for Scylla server to enter 'serving' state
-      ansible.builtin.shell: |
-        until systemctl status scylla-server | grep -q "Status: \"serving\""; do sleep 10; done
-      async: 180
-      poll: 10
-      # This task waits up to 3 minutes (180 seconds), checking every 10 seconds, for the Scylla server to report it is in a 'serving' state.

@@ -9,8 +9,18 @@ aws_setup() {
     # Initialize Terraform (download providers, etc.)
     terraform init
     # Apply the Terraform configuration
-    terraform apply
-    sleep 20
+    # Check if Terraform apply is needed
+    # terraform plan -detailed-exitcode
+    # exitcode=$?
+    # if [ $exitcode -eq 2 ]; then
+    #     # Apply the Terraform configuration if changes are detected
+    #     echo "Applying Terraform changes..."
+    #     terraform apply -auto-approve
+    # else
+    #     echo "No Terraform changes detected, skipping apply."
+    # fi
+    terraform apply -auto-approve
+    sleep 5
     cd ../ansible_install
     python3 configure_vars_ansible.py
     # Install Scylla
@@ -25,11 +35,11 @@ aws_setup() {
 
 # Function to perform AWS benchmark
 aws_benchmark() {
-    cd ../benchmark/
+    cd ./benchmark/
     echo "Configuring stress profile"
     python3 configure_stress_profile.py
     # Load data and run benchmark
-    cd ../ansible_install
+    cd ../aws/ansible_install
     echo "Starting benchmark..."
     ansible-playbook benchmark_start_load.yml
     # Add additional benchmark commands here
@@ -39,7 +49,7 @@ aws_destroy() {
     set -e
     export AWS_PROFILE=DevOpsAccessRole
     cd aws/cluster/
-    terraform destroy
+    terraform destroy --auto-approve
 }
 # Main logic to process arguments
 process_arguments() {
