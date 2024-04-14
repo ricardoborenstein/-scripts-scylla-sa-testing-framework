@@ -33,6 +33,21 @@ aws_setup() {
     echo "System is ready for testing."
 }
 
+aws_config(){
+    sleep 5
+    cd aws/ansible_install
+    python3 configure_vars_ansible.py
+    # Install Scylla
+    set -e
+    ansible-playbook restart_nonseed.yml
+    ansible-playbook get_monitoring_config.yml
+    ansible-playbook install_monitoring.yml
+    ansible-playbook install_loader.yml
+    set +e
+    echo "System is ready for testing."
+}
+
+
 # Function to perform AWS benchmark
 aws_benchmark() {
     cd ./benchmark/
@@ -71,14 +86,16 @@ process_arguments() {
 
         echo "Select an operation:"
         echo "1) Setup"
-        echo "2) Benchmark"
-        echo "3) Destroy"
-        read -p "Operation (1/2/3): " operation_choice
+        echo "2) Configure"
+        echo "3) Benchmark"
+        echo "4) Destroy"
+        read -p "Operation (1/2/3/4): " operation_choice
 
         case $operation_choice in
             1) operation="setup" ;;
-            2) operation="benchmark" ;;
-            3) operation="destroy" ;;
+            2) operation="configure" ;;
+            3) operation="benchmark" ;;
+            4) operation="destroy" ;;
             *) echo "Invalid operation."; exit 1 ;;
         esac
     fi
@@ -90,6 +107,7 @@ execute_operation() {
     if [ "$provider" == "aws" ]; then
         case $operation in
             "setup") aws_setup ;;
+            "config") aws_config ;;
             "benchmark") aws_benchmark ;;
             "destroy") aws_destroy ;;
             *) echo "Invalid AWS operation."; exit 1 ;;

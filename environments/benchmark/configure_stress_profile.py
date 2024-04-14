@@ -6,7 +6,7 @@ import re
 # File paths
 scylla_servers_path = '../aws/ansible_install/scylla_servers.yml'
 template_path = './templates/ott-audio-streaming.yaml.tpl'
-benchmark_output_path = './stress.yaml'
+benchmark_output_path = '././ott-audio-streaming.yaml'
 insert_stress_output_path = './populate'
 # Read the scylla_servers.yml file to extract the datacenter information
 with open(scylla_servers_path, 'r') as file:
