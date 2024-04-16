@@ -25,15 +25,16 @@ def create_infrastructure(config):
         details = config['regions'][region]
         num_nodes = details['nodes']
         cidr = details['cidr']
-
+        tags = {"Name": f"{config["cluster_name"]}"+ "_" + f"{region}-VPC", "Type": "VPC"}
         vpc_id = f"vpc_{region}"
-        vpc = aws_vpc(vpc_id, provider=region, cidr_block=cidr, enable_dns_support=True, enable_dns_hostnames=True)
+        vpc = aws_vpc(vpc_id, provider=region, cidr_block=cidr, enable_dns_support=True, enable_dns_hostnames=True,tags=tags)
         ts += vpc
         resources["aws_vpc"][vpc_id] = {
             "provider": f"aws.{region}",
             "cidr_block": cidr,
             "enable_dns_support": True,
-            "enable_dns_hostnames": True
+            "enable_dns_hostnames": True,
+            "tags": tags
         }
         vpc_ids[region] = vpc_id  # Storing each VPC ID with its respective region as key
 
@@ -43,16 +44,19 @@ def create_infrastructure(config):
             subnet_octet = base_octet + i
             subnet_cidr = f"{cidr.rsplit('.', 2)[0]}.{subnet_octet}.0/24"
             subnet_id = f"subnet_{region}_{i}"
+            tags = {"Name": f"{config["cluster_name"]}"+ "_" + f"{region}-subnet", "Type": "Subnet"}
+
             subnet = aws_subnet(subnet_id, provider=region, vpc_id=f"${{aws_vpc.{vpc_id}.id}}",
                                 cidr_block=subnet_cidr, map_public_ip_on_launch=True, 
-                                availability_zone=f"{region}a")
+                                availability_zone=f"{region}a",tags=tags)
             ts += subnet
             resources["aws_subnet"][subnet_id] = {
                 "provider": f"aws.{region}",
                 "vpc_id": f"${{aws_vpc.{vpc_id}.id}}",
                 "cidr_block": subnet_cidr,
                 "map_public_ip_on_launch": True,
-                "availability_zone": f"{region}a"
+                "availability_zone": f"{region}a",
+                "tags": tags
             }
 
         ami_id = f"ami_{region}"
@@ -83,6 +87,7 @@ def create_infrastructure(config):
             if i != 0:
                 instance_id_seed = f"instance_{region}_0"
                 seed_instances[region] = f"${{aws_instance.{instance_id_seed}.private_ip}}"
+                tags = {"Name": f"{config["cluster_name"]}"+ "_" + f"instance_{region}_0", "Type": "Peer"}
                 user_data_script = f"""\
                 #!/bin/bash
                 echo '
@@ -100,6 +105,7 @@ def create_infrastructure(config):
                 }}' > /etc/scylla/scylla.yaml
                 """
             if i == 0:
+                tags = {"Name": f"{config["cluster_name"]}"+ "_" + f"instance_{region}_0", "Type": "Seed"}
                 user_data_script = f"""\
                 #!/bin/bash
                 echo '
@@ -110,17 +116,19 @@ def create_infrastructure(config):
                 }}
                 }}' > /etc/scylla/scylla.yaml
                 """
+            
             instance_id = f"instance_{region}_{i}"
             instance = aws_instance(instance_id, provider=region,
                                     ami=f"${{data.aws_ami.{ami_id}.id}}", instance_type="i4i.large",
-                                    subnet_id=f"${{aws_subnet.{subnet_id}.id}}",user_data=user_data_script)
+                                    subnet_id=f"${{aws_subnet.{subnet_id}.id}}",user_data=user_data_script,tags=tags)
             ts += instance
             resources["aws_instance"][instance_id] = {
                 "provider": f"aws.{region}",
                 "ami": f"${{data.aws_ami.{ami_id}.id}}",
                 "instance_type": "i4i.large",
                 "subnet_id": f"${{aws_subnet.{subnet_id}.id}}",
-                "user_data": user_data_script
+                "user_data": user_data_script,
+                "tags": tags
             }
 
     # Configure VPC Peering Connections if multiple regions are specified
@@ -130,29 +138,35 @@ def create_infrastructure(config):
             for j in range(i + 1, len(regions)):
                 region_j = regions[j]
                 peering_id = f"peer_{region_i}_to_{region_j}"
+                tags = {"Name": f"{config["cluster_name"]}"+ "_" + f"peer_{region_i}_to_{region_j}", "Type": "Peering"}
+
                 peering = aws_vpc_peering_connection(peering_id, provider=region_i,
                                                      vpc_id=f"${{aws_vpc.{vpc_ids[region_i]}.id}}",
                                                      peer_vpc_id=f"${{aws_vpc.{vpc_ids[region_j]}.id}}",
                                                      peer_region=region_j,  # Specify the peer VPC's region
-                                                     auto_accept=True)
+                                                     auto_accept=True,tags=tags)
                 ts += peering
                 resources["aws_vpc_peering_connection"][peering_id] = {
                     "provider": f"aws.{region_i}",
                     "vpc_id": f"${{aws_vpc.{vpc_ids[region_i]}.id}}",
                     "peer_vpc_id": f"${{aws_vpc.{vpc_ids[region_j]}.id}}",
-                    "peer_region": region_j,  # This is critical for cross-region peering
+                    "peer_region": region_j,
+                    "tags": tags  # This is critical for cross-region peering
                     #"auto_accept": True
                 }
                                 # Peering connection acceptance in the peer region
                 accepter_id = f"peer_accept_{region_j}_from_{region_i}"
+                tags = {"Name": f"{config["cluster_name"]}"+ "_" + f"peer_accept_{region_j}_from_{region_i}_peer_accept", "Type": "peer_accept"}
+
                 accepter = aws_vpc_peering_connection_accepter(accepter_id, provider=region_j,
                                                                vpc_peering_connection_id=f"${{aws_vpc_peering_connection.{peering_id}.id}}",
-                                                               auto_accept=True)
+                                                               auto_accept=True,tags=tags)
                 ts += accepter
                 resources["aws_vpc_peering_connection_accepter"][accepter_id] = {
                     "provider": f"aws.{region_j}",
                     "vpc_peering_connection_id": f"${{aws_vpc_peering_connection.{peering_id}.id}}",
-                    "auto_accept": True
+                    "auto_accept": True,
+                    "tags": tags
                 }
 
     tf_config = {
@@ -175,7 +189,7 @@ def create_infrastructure(config):
 
 if __name__ == "__main__":
     config = {
-        "cluster_name": "ScyllaCluster1",
+        "cluster_name": "Ricardo-ScyllaCluster1",
         "scylla_version": "2024.1.2",
         "regions": {
             "us-east-1": {"nodes": 2, "cidr": "10.0.0.0/16"},
