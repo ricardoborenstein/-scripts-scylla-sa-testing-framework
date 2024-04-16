@@ -20,7 +20,7 @@ def create_infrastructure(config):
     }
     data = {"aws_ami": {}}
     vpc_ids = {}  # Correctly initializing the dictionary to store VPC IDs.
-
+    seed_instances = {}
     for region in config['regions']:
         details = config['regions'][region]
         num_nodes = details['nodes']
@@ -57,7 +57,7 @@ def create_infrastructure(config):
 
         ami_id = f"ami_{region}"
         ami = aws_ami(ami_id, provider=region, most_recent=True,
-                      filters=[{"name": "name", "values": [f"ScyllaDB Enterprise*"]},
+                      filters=[{"name": "name", "values": [f"ScyllaDB Enterprise* {config["scylla_version"]}"]},
                                {"name": "virtualization-type", "values": ["hvm"]},
                                {"name": "root-device-type", "values": ["ebs"]},
                                {"name": "architecture", "values": ["x86_64"]}],
@@ -67,25 +67,60 @@ def create_infrastructure(config):
             "provider": f"aws.{region}",
             "most_recent": True,
             "filter": [
-                {"name": "name", "values": [f"ScyllaDB Enterprise*"]},
+                {"name": "name", "values": [f"ScyllaDB Enterprise* {config["scylla_version"]}"]},
                 {"name": "virtualization-type", "values": ["hvm"]},
                 {"name": "root-device-type", "values": ["ebs"]},
                 {"name": "architecture", "values": ["x86_64"]}
             ],
             "owners": ["158855661827"]
         }
-
+        
         for i in range(num_nodes):
+            instance_id = f"instance_{region}_{i}"
+            
+            seed_instances[region] = f"${{aws_instance.{instance_id}.private_ip}}"
+            # Check if this is the first instance (seed instance) for the region
+            if i != 0:
+                instance_id_seed = f"instance_{region}_0"
+                seed_instances[region] = f"${{aws_instance.{instance_id_seed}.private_ip}}"
+                user_data_script = f"""\
+                #!/bin/bash
+                echo '
+                {{
+                "scylla_yaml": {{
+                    "cluster_name": "{config['cluster_name']}",
+                    "seed_provider": [{{
+                    "class_name": "org.apache.cassandra.locator.SimpleSeedProvider",
+                    "parameters": [{{
+                        "seeds": "{seed_instances[region]}"
+                    }}]
+                    }}],
+                    "start_scylla_on_first_boot": false
+                }}
+                }}' > /etc/scylla/scylla.yaml
+                """
+            if i == 0:
+                user_data_script = f"""\
+                #!/bin/bash
+                echo '
+                {{
+                "scylla_yaml": {{
+                    "cluster_name": "{config['cluster_name']}",
+                    "start_scylla_on_first_boot": false
+                }}
+                }}' > /etc/scylla/scylla.yaml
+                """
             instance_id = f"instance_{region}_{i}"
             instance = aws_instance(instance_id, provider=region,
                                     ami=f"${{data.aws_ami.{ami_id}.id}}", instance_type="i4i.large",
-                                    subnet_id=f"${{aws_subnet.{subnet_id}.id}}")
+                                    subnet_id=f"${{aws_subnet.{subnet_id}.id}}",user_data=user_data_script)
             ts += instance
             resources["aws_instance"][instance_id] = {
                 "provider": f"aws.{region}",
                 "ami": f"${{data.aws_ami.{ami_id}.id}}",
                 "instance_type": "i4i.large",
-                "subnet_id": f"${{aws_subnet.{subnet_id}.id}}"
+                "subnet_id": f"${{aws_subnet.{subnet_id}.id}}",
+                "user_data": user_data_script
             }
 
     # Configure VPC Peering Connections if multiple regions are specified
@@ -106,7 +141,7 @@ def create_infrastructure(config):
                     "vpc_id": f"${{aws_vpc.{vpc_ids[region_i]}.id}}",
                     "peer_vpc_id": f"${{aws_vpc.{vpc_ids[region_j]}.id}}",
                     "peer_region": region_j,  # This is critical for cross-region peering
-                    "auto_accept": True
+                    #"auto_accept": True
                 }
                                 # Peering connection acceptance in the peer region
                 accepter_id = f"peer_accept_{region_j}_from_{region_i}"
@@ -140,6 +175,7 @@ def create_infrastructure(config):
 
 if __name__ == "__main__":
     config = {
+        "cluster_name": "ScyllaCluster1",
         "scylla_version": "2024.1.2",
         "regions": {
             "us-east-1": {"nodes": 2, "cidr": "10.0.0.0/16"},
