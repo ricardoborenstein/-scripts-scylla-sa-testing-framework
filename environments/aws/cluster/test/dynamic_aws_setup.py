@@ -1,8 +1,43 @@
 import json
 from terrascript import Terrascript
 import terrascript.provider as provider
-from terrascript.aws.r import aws_vpc, aws_subnet, aws_instance, aws_vpc_peering_connection, aws_vpc_peering_connection_accepter
+from terrascript.aws.r import aws_vpc, aws_subnet, aws_instance, aws_vpc_peering_connection, aws_vpc_peering_connection_accepter,aws_security_group
 from terrascript.aws.d import aws_ami
+
+
+# Define the ingress rules as a local variable
+# Define the ingress rules as a local variable
+ingress_rules = [
+    {"from_port": 443, "to_port": 443, "protocol": "tcp", "cidr_blocks": ["0.0.0.0/0"], "description": "HTTPS access", "ipv6_cidr_blocks": [], "prefix_list_ids": [], "security_groups": [], "self": False},
+    {"from_port": 3000, "to_port": 3000, "protocol": "tcp", "cidr_blocks": ["0.0.0.0/0"], "description": "Monitoring access", "ipv6_cidr_blocks": [], "prefix_list_ids": [], "security_groups": [], "self": False},
+    {"from_port": 80, "to_port": 80, "protocol": "tcp", "cidr_blocks": ["0.0.0.0/0"], "description": "HTTP access", "ipv6_cidr_blocks": [], "prefix_list_ids": [], "security_groups": [], "self": False},
+    {"from_port": 22, "to_port": 22, "protocol": "tcp", "cidr_blocks": ["0.0.0.0/0"], "description": "SSH access", "ipv6_cidr_blocks": [], "prefix_list_ids": [], "security_groups": [], "self": False},
+    {"from_port": 9042, "to_port": 9042, "protocol": "tcp", "cidr_blocks": ["0.0.0.0/0"], "description": "CQL access", "ipv6_cidr_blocks": [], "prefix_list_ids": [], "security_groups": [], "self": False},
+    {"from_port": 9142, "to_port": 9142, "protocol": "tcp", "cidr_blocks": ["0.0.0.0/0"], "description": "SSL CQL access", "ipv6_cidr_blocks": [], "prefix_list_ids": [], "security_groups": [], "self": False},
+    {"from_port": 7000, "to_port": 7000, "protocol": "tcp", "cidr_blocks": ["0.0.0.0/0"], "description": "RPC access", "ipv6_cidr_blocks": [], "prefix_list_ids": [], "security_groups": [], "self": False},
+    {"from_port": 7001, "to_port": 7001, "protocol": "tcp", "cidr_blocks": ["0.0.0.0/0"], "description": "RPC SSL access", "ipv6_cidr_blocks": [], "prefix_list_ids": [], "security_groups": [], "self": False},
+    {"from_port": 7199, "to_port": 7199, "protocol": "tcp", "cidr_blocks": ["0.0.0.0/0"], "description": "JMX access", "ipv6_cidr_blocks": [], "prefix_list_ids": [], "security_groups": [], "self": False},
+    {"from_port": 10000, "to_port": 10000, "protocol": "tcp", "cidr_blocks": ["0.0.0.0/0"], "description": "REST access", "ipv6_cidr_blocks": [], "prefix_list_ids": [], "security_groups": [], "self": False},
+    {"from_port": 9180, "to_port": 9180, "protocol": "tcp", "cidr_blocks": ["0.0.0.0/0"], "description": "Prometheus access", "ipv6_cidr_blocks": [], "prefix_list_ids": [], "security_groups": [], "self": False},
+    {"from_port": 9100, "to_port": 9100, "protocol": "tcp", "cidr_blocks": ["0.0.0.0/0"], "description": "Node exp access", "ipv6_cidr_blocks": [], "prefix_list_ids": [], "security_groups": [], "self": False},
+    {"from_port": 9160, "to_port": 9160, "protocol": "tcp", "cidr_blocks": ["0.0.0.0/0"], "description": "Thrift access", "ipv6_cidr_blocks": [], "prefix_list_ids": [], "security_groups": [], "self": False},
+    {"from_port": 19042, "to_port": 19042, "protocol": "tcp", "cidr_blocks": ["0.0.0.0/0"], "description": "Shard-aware access", "ipv6_cidr_blocks": [], "prefix_list_ids": [], "security_groups": [], "self": False},
+]
+
+egress_rules = [
+    {
+        "from_port": 0,
+        "to_port": 0,
+        "protocol": "-1",
+        "cidr_blocks": ["0.0.0.0/0"],
+        "description": "Allow all outbound traffic",
+        "ipv6_cidr_blocks": [],
+        "prefix_list_ids": [],
+        "security_groups": [],
+        "self": False
+    }
+]
+
 
 def create_infrastructure(config):
     ts = Terrascript()
@@ -16,7 +51,8 @@ def create_infrastructure(config):
         "aws_subnet": {},
         "aws_instance": {},
         "aws_vpc_peering_connection": {},
-        "aws_vpc_peering_connection_accepter": {}
+        "aws_vpc_peering_connection_accepter": {},
+        "aws_security_group": {}
     }
     data = {"aws_ami": {}}
     vpc_ids = {}  # Correctly initializing the dictionary to store VPC IDs.
@@ -38,6 +74,36 @@ def create_infrastructure(config):
         }
         vpc_ids[region] = vpc_id  # Storing each VPC ID with its respective region as key
 
+        # Create security group resource
+        sg = aws_security_group(
+            f"sg_{region}",
+            name=f"{config['cluster_name']}-sg-{region}",
+            vpc_id=vpc.id,
+            ingress=ingress_rules,
+            egress=egress_rules,
+            tags={
+                "Name": f"{config['cluster_name']}-SG-{region}",
+                "Project": config['cluster_name'],
+                "Type": "Security Group",
+                "Region": region
+            }
+        )
+        ts += sg
+        
+        # Add security group to resources dictionary
+        resources["aws_security_group"][f"sg_{region}"] = {
+            "name": f"{config['cluster_name']}-sg-{region}",
+            "vpc_id": vpc.id,
+            "ingress": ingress_rules,
+            "egress": egress_rules,
+            "tags": {
+                "Name": f"{config['cluster_name']}-SG-{region}",
+                "Project": config['cluster_name'],
+                "Type": "Security Group",
+                "Region": region
+            }
+        }
+
         # Create subnets within each VPC
         base_octet = int(cidr.split('.')[2])
         for i in range(num_nodes):
@@ -58,7 +124,7 @@ def create_infrastructure(config):
                 "availability_zone": f"{region}a",
                 "tags": tags
             }
-
+  
         ami_id = f"ami_{region}"
         ami = aws_ami(ami_id, provider=region, most_recent=True,
                       filters=[{"name": "name", "values": [f"ScyllaDB Enterprise* {config["scylla_version"]}"]},
@@ -156,7 +222,7 @@ def create_infrastructure(config):
                 }
                                 # Peering connection acceptance in the peer region
                 accepter_id = f"peer_accept_{region_j}_from_{region_i}"
-                tags = {"Name": f"{config["cluster_name"]}"+ "_" + f"peer_accept_{region_j}_from_{region_i}_peer_accept", "Type": "peer_accept"}
+                tags = {"Name": f"{config["cluster_name"]}"+ "_" + f"peer_accept_{region_j}_from_{region_i}", "Type": "peer_accept"}
 
                 accepter = aws_vpc_peering_connection_accepter(accepter_id, provider=region_j,
                                                                vpc_peering_connection_id=f"${{aws_vpc_peering_connection.{peering_id}.id}}",
