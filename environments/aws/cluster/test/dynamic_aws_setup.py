@@ -2,7 +2,7 @@ import json
 from terrascript import Terrascript
 import terrascript.provider as provider
 from terrascript.aws.r import aws_vpc, aws_subnet, aws_instance, aws_vpc_peering_connection, aws_vpc_peering_connection_accepter,aws_security_group
-from terrascript.aws.d import aws_ami
+from terrascript.aws.d import aws_ami , aws_availability_zones
 
 
 # Define the ingress rules as a local variable
@@ -38,6 +38,10 @@ egress_rules = [
     }
 ]
 
+def get_azs(region, ts):
+    azs = aws_availability_zones(f"azs_{region}", provider=region)
+    ts += azs  # This adds the data source to the script
+    return azs.names
 
 def create_infrastructure(config):
     ts = Terrascript()
@@ -72,13 +76,22 @@ def create_infrastructure(config):
             "enable_dns_hostnames": True,
             "tags": tags
         }
+        azs = aws_availability_zones(f"azs_{region}",state="available")
+        ts += azs
+        az_mode = details.get('az_mode', 'single-az')
+        # Define specific AZs manually for multi-AZ or single-AZ
+        if az_mode == 'multi-az':
+            azs = [f"{region}a", f"{region}b", f"{region}c"]  # Specific AZs for multi-AZ
+        else:
+            azs = [f"{region}a"]  # Only the first AZ for single-AZ
         vpc_ids[region] = vpc_id  # Storing each VPC ID with its respective region as key
 
         # Create security group resource
         sg = aws_security_group(
             f"sg_{region}",
+            provider=f"aws.{region}",
             name=f"{config['cluster_name']}-sg-{region}",
-            vpc_id=vpc.id,
+            vpc_id=f"${{aws_vpc.{vpc_id}.id}}",
             ingress=ingress_rules,
             egress=egress_rules,
             tags={
@@ -93,7 +106,8 @@ def create_infrastructure(config):
         # Add security group to resources dictionary
         resources["aws_security_group"][f"sg_{region}"] = {
             "name": f"{config['cluster_name']}-sg-{region}",
-            "vpc_id": vpc.id,
+            "provider": f"aws.{region}",
+            "vpc_id": f"${{aws_vpc.{vpc_id}.id}}",
             "ingress": ingress_rules,
             "egress": egress_rules,
             "tags": {
@@ -106,22 +120,26 @@ def create_infrastructure(config):
 
         # Create subnets within each VPC
         base_octet = int(cidr.split('.')[2])
-        for i in range(num_nodes):
-            subnet_octet = base_octet + i
-            subnet_cidr = f"{cidr.rsplit('.', 2)[0]}.{subnet_octet}.0/24"
-            subnet_id = f"subnet_{region}_{i}"
-            tags = {"Name": f"{config["cluster_name"]}"+ "_" + f"{region}-subnet", "Type": "Subnet"}
 
-            subnet = aws_subnet(subnet_id, provider=region, vpc_id=f"${{aws_vpc.{vpc_id}.id}}",
-                                cidr_block=subnet_cidr, map_public_ip_on_launch=True, 
-                                availability_zone=f"{region}a",tags=tags)
+        for i in range(num_nodes):
+            az = azs[i % len(azs)]
+            subnet_id = f"subnet_{region}_{i}"
+            subnet_cidr = f"{cidr.rsplit('.', 2)[0]}.{i}.0/24"  # Example subnet CIDR
+            subnet = aws_subnet(
+                subnet_id, provider=region, 
+                vpc_id=vpc_id,
+                cidr_block=subnet_cidr, 
+                availability_zone=az,
+                map_public_ip_on_launch=True,
+                tags={"Name": f"{config['cluster_name']}_{region}_subnet_{i}", "Type": "Subnet"}
+            )
             ts += subnet
             resources["aws_subnet"][subnet_id] = {
                 "provider": f"aws.{region}",
                 "vpc_id": f"${{aws_vpc.{vpc_id}.id}}",
                 "cidr_block": subnet_cidr,
                 "map_public_ip_on_launch": True,
-                "availability_zone": f"{region}a",
+                "availability_zone": az,
                 "tags": tags
             }
   
@@ -258,8 +276,8 @@ if __name__ == "__main__":
         "cluster_name": "Ricardo-ScyllaCluster1",
         "scylla_version": "2024.1.2",
         "regions": {
-            "us-east-1": {"nodes": 2, "cidr": "10.0.0.0/16"},
-            "us-west-2": {"nodes": 1, "cidr": "10.1.0.0/16"}
+            "us-east-1": {"nodes": 3, "cidr": "10.0.0.0/16", "az_mode": "multi-az"},
+            "us-west-2": {"nodes": 2, "cidr": "10.1.0.0/16", "az_mode": "single-az"}
         }
     }
 
