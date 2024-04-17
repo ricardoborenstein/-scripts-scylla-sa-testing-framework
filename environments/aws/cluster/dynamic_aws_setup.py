@@ -76,7 +76,7 @@ def create_infrastructure(config):
         scylla_type = details['scylla_node_type']
         key_name = config['aws_key_pair_name']
         cidr = details['cidr']
-        tags = {"Name": f"{config["cluster_name"]}"+ "_" + f"{region}-VPC", "Type": "VPC"}
+        tags = {"Name": f"{config["cluster_name"]}"+ "_" + f"{region}-VPC", "Type": "VPC","Project": config['cluster_name']}
         vpc_id = f"vpc_{region}"
         vpc = aws_vpc(vpc_id, provider=region, cidr_block=cidr, enable_dns_support=True, enable_dns_hostnames=True,tags=tags)
         ts += vpc
@@ -202,7 +202,7 @@ def create_infrastructure(config):
                 cidr_block=subnet_cidr, 
                 availability_zone=az,
                 map_public_ip_on_launch=True,
-                tags={"Name": f"{config['cluster_name']}_{region}_subnet_{i}", "Type": "Subnet"}
+                tags={"Name": f"{config['cluster_name']}_{region}_subnet_{i}", "Type": "Subnet","Project": config['cluster_name']}
             )
             ts += subnet
             resources["aws_subnet"][subnet_id] = {
@@ -275,56 +275,67 @@ def create_infrastructure(config):
             seed_instances[region] = f"${{aws_instance.{instance_id}.private_ip}}"
             # Check if this is the first instance (seed instance) for the region
             if i == 0:
+                tags = {"Name": f"{config['cluster_name']}_{region}_instance_{i}", "Group": "Seed", "Type": "Scylla","Project": config['cluster_name']}
                 if region == primary_region:
-                # This is the primary seed instance
-                    primary_seed_ip = f"${{aws_instance.{instance_id}.private_ip}}"  # Store its IP
+                    # This is the primary seed instance, it does not need a seed provider
+                    seeds = ""  # No seeds needed for the primary seed itself
                     start_on_boot = "true"
+                    user_data_script = f"""
+    {{
+        "scylla_yaml": {{
+            "cluster_name": "{config['cluster_name']}",
+        }},
+        "start_scylla_on_first_boot": {start_on_boot}
+    }}
+    """
                 else:
+                    tags = {"Name": f"{config['cluster_name']}_{region}_instance_{i}", "Group": "Seed2", "Type": "Scylla","Project": config['cluster_name']}
                     # Use the primary region's seed IP for the first instance of other regions
+                    seeds = f"${{aws_instance.instance_{primary_region}_0.private_ip}}"
                     start_on_boot = "false"
-        
-                tags = {"Name": f"{config['cluster_name']}_{region}_instance_{i}", "Group": "Seed", "Type": "Scylla"}
-                user_data_script = f"""\
-                #!/bin/bash
-                echo '
-                {{
-                    "scylla_yaml": {{
-                        "cluster_name": "{config['cluster_name']}",
-                        "seed_provider": [{{
-                            "class_name": "org.apache.cassandra.locator.SimpleSeedProvider",
-                            "parameters": [{{
-                                "seeds": "{primary_seed_ip if region != primary_region else ''}"
-                            }}]
-                        }}],
-                        "start_scylla_on_first_boot": {start_on_boot}
-                    }}
-                }}' > /etc/scylla/scylla.yaml
-                """
+                    user_data_script = f"""
+
+    {{
+        "scylla_yaml": {{
+            "cluster_name": "{config['cluster_name']}",
+            "seed_provider": [{{
+                "class_name": "org.apache.cassandra.locator.SimpleSeedProvider",
+                "parameters": [{{
+                    "seeds": "{seeds}"
+                }}]
+            }}],
+            
+        }},
+        "start_scylla_on_first_boot": {start_on_boot}
+    }}
+    """
             else:
-                # Non-seed instances
-                tags = {"Name": f"{config['cluster_name']}_{region}_instance_{i}", "Group": "NonSeed", "Type": "Scylla"}
-                user_data_script = f"""\
-                #!/bin/bash
-                echo '
-                {{
-                    "scylla_yaml": {{
-                        "cluster_name": "{config['cluster_name']}",
-                        "seed_provider": [{{
-                            "class_name": "org.apache.cassandra.locator.SimpleSeedProvider",
-                            "parameters": [{{
-                                "seeds": "{primary_seed_ip}"
-                            }}]
-                        }}],
-                        "start_scylla_on_first_boot": false
-                    }}
-                }}' > /etc/scylla/scylla.yaml
-                """
+                tags = {"Name": f"{config['cluster_name']}_{region}_instance_{i}", "Group": "NonSeed", "Type": "Scylla","Project": config['cluster_name']}
+                # Non-seed instances use the primary seed's IP
+                seeds = f"${{aws_instance.instance_{primary_region}_0.private_ip}}"
+                start_on_boot = "false"
+                user_data_script = f"""
+    {{
+        "scylla_yaml": {{
+            "cluster_name": "{config['cluster_name']}",
+            "seed_provider": [{{
+                "class_name": "org.apache.cassandra.locator.SimpleSeedProvider",
+                "parameters": [{{
+                    "seeds": "{seeds}"
+                }}]
+            }}],
+            
+        }},
+        "start_scylla_on_first_boot": {start_on_boot}
+    }}
+    """
         
             #instance_id = f"instance_{region}_{i}"
             instance = aws_instance(instance_id, provider=region,
                                     ami=f"${{data.aws_ami.{scylla_ami_id}.id}}", instance_type=scylla_type,
                                     vpc_security_group_ids=[f"${{aws_security_group.sg_{region}.id}}"],  # Attach security group
-                                    subnet_id=f"${{aws_subnet.{subnet_id}.id}}",user_data=user_data_script,tags=tags,key_name=key_name,
+                                    subnet_id=f"${{aws_subnet.{subnet_id}.id}}",user_data=user_data_script,
+                                    tags=tags,key_name=key_name,
                                     depends_on=[f"aws_security_group.{sg_id}"])
             ts += instance
             resources["aws_instance"][instance_id] = {
@@ -340,24 +351,24 @@ def create_infrastructure(config):
                 
             }
 
-    for i in range(num_loaders):            
-            instance_id = f"loader_{region}_{i}"
-            tags = {"Name": f"{config["cluster_name"]}"+ "_" + f"loader_{region}_0", "Type": "Loader"}
-            instance = aws_instance(instance_id, provider=region,
-                                    ami=f"${{data.aws_ami.{ubuntu_ami_id}.id}}", instance_type=loaders_type,
-                                    vpc_security_group_ids=[f"${{aws_security_group.{sg_id}.id}}"],  # Attach security group
-                                    subnet_id=f"${{aws_subnet.{subnet_id}.id}}",tags=tags,key_name=key_name,depends_on=[f"aws_security_group.{sg_id}"])
-            ts += instance
-            resources["aws_instance"][instance_id] = {
-                "provider": f"aws.{region}",
-                "ami": f"${{data.aws_ami.{ubuntu_ami_id}.id}}",
-                "instance_type": loaders_type,
-                "subnet_id": f"${{aws_subnet.{subnet_id}.id}}",
-                "vpc_security_group_ids": [f"${{aws_security_group.{sg_id}.id}}"],  # Ensure this is an array
-                "tags": tags,
-                "key_name": key_name,
-                "depends_on": [f"aws_security_group.{sg_id}"]
-            }
+        for i in range(num_loaders):            
+                instance_id = f"loader_{region}_{i}"
+                tags = {"Name": f"{config["cluster_name"]}"+ "_" + f"loader_{region}_0", "Type": "Loader","Project": config['cluster_name']}
+                instance = aws_instance(instance_id, provider=region,
+                                        ami=f"${{data.aws_ami.{ubuntu_ami_id}.id}}", instance_type=loaders_type,
+                                        vpc_security_group_ids=[f"${{aws_security_group.{sg_id}.id}}"],  # Attach security group
+                                        subnet_id=f"${{aws_subnet.{subnet_id}.id}}",tags=tags,key_name=key_name,depends_on=[f"aws_security_group.{sg_id}"])
+                ts += instance
+                resources["aws_instance"][instance_id] = {
+                    "provider": f"aws.{region}",
+                    "ami": f"${{data.aws_ami.{ubuntu_ami_id}.id}}",
+                    "instance_type": loaders_type,
+                    "subnet_id": f"${{aws_subnet.{subnet_id}.id}}",
+                    "vpc_security_group_ids": [f"${{aws_security_group.{sg_id}.id}}"],  # Ensure this is an array
+                    "tags": tags,
+                    "key_name": key_name,
+                    "depends_on": [f"aws_security_group.{sg_id}"]
+                }
 
     # Configure VPC Peering Connections if multiple regions are specified
     if len(config['regions']) > 1:
@@ -366,7 +377,7 @@ def create_infrastructure(config):
             for j in range(i + 1, len(regions)):
                 region_j = regions[j]
                 peering_id = f"peer_{region_i}_to_{region_j}"
-                tags = {"Name": f"{config["cluster_name"]}"+ "_" + f"peer_{region_i}_to_{region_j}", "Type": "Peering"}
+                tags = {"Name": f"{config["cluster_name"]}"+ "_" + f"peer_{region_i}_to_{region_j}", "Type": "Peering","Project": config['cluster_name']}
 
                 peering = aws_vpc_peering_connection(peering_id, provider=region_i,
                                                      vpc_id=f"${{aws_vpc.{vpc_ids[region_i]}.id}}",
@@ -382,9 +393,24 @@ def create_infrastructure(config):
                     "tags": tags  # This is critical for cross-region peering
                     #"auto_accept": True
                 }
+                # Routes for peering in each route table
+                route_peer_i = aws_route(f"route_peer_{region_i}_{region_j}", provider=f"aws.{region_i}",
+                                        route_table_id=f"${{aws_route_table.rt_{region_i}.id}}",
+                                        destination_cidr_block=config['regions'][region_j]['cidr'],
+                                        vpc_peering_connection_id=f"${{aws_vpc_peering_connection.{peering_id}.id}}")
+                ts += route_peer_i
+                resources["aws_route"][f"route_peer_{region_i}_{region_j}"] = route_peer_i
+
+                route_peer_j = aws_route(f"route_peer_{region_j}_{region_i}", provider=f"aws.{region_j}",
+                                        route_table_id=f"${{aws_route_table.rt_{region_j}.id}}",
+                                        destination_cidr_block=config['regions'][region_i]['cidr'],
+                                        vpc_peering_connection_id=f"${{aws_vpc_peering_connection.{peering_id}.id}}")
+                ts += route_peer_j
+                resources["aws_route"][f"route_peer_{region_j}_{region_i}"] = route_peer_j
+
                                 # Peering connection acceptance in the peer region
                 accepter_id = f"peer_accept_{region_j}_from_{region_i}"
-                tags = {"Name": f"{config["cluster_name"]}"+ "_" + f"peer_accept_{region_j}_from_{region_i}", "Type": "peer_accept"}
+                tags = {"Name": f"{config["cluster_name"]}"+ "_" + f"peer_accept_{region_j}_from_{region_i}", "Type": "peer_accept","Project": config['cluster_name']}
 
                 accepter = aws_vpc_peering_connection_accepter(accepter_id, provider=region_j,
                                                                vpc_peering_connection_id=f"${{aws_vpc_peering_connection.{peering_id}.id}}",
@@ -421,7 +447,7 @@ if __name__ == "__main__":
         "scylla_version": "2024.1.2",
         "regions": {
             "us-east-1": {"nodes": 3, "scylla_node_type": "i4i.large" , "loaders": 3 , "loaders_type": "m5.large" ,"cidr": "10.0.0.0/16", "az_mode": "multi-az"},
-            "us-west-2": {"nodes": 2, "scylla_node_type": "i4i.large" , "loaders": 3 , "loaders_type": "m5.large" ,"cidr": "10.1.0.0/16", "az_mode": "single-az"}
+            "us-west-2": {"nodes": 2, "scylla_node_type": "i4i.large" , "loaders": 0 , "loaders_type": "m5.large" ,"cidr": "10.1.0.0/16", "az_mode": "single-az"}
         },
         "aws_key_pair_name" : "ricardo-terraform",
     }
