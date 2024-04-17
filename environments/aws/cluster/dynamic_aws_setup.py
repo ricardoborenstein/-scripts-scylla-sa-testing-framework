@@ -197,7 +197,7 @@ def create_infrastructure(config):
             if i != 0:
                 instance_id_seed = f"instance_{region}_0"
                 seed_instances[region] = f"${{aws_instance.{instance_id_seed}.private_ip}}"
-                tags = {"Name": f"{config["cluster_name"]}"+ "_" + f"instance_{region}_{i}", "Type": "Peer"}
+                tags = {"Name": f"{config["cluster_name"]}"+ "_" + f"instance_{region}_{i}", "Group": "NonSeed","Type": "Scylla"}
                 user_data_script = f"""\
                 #!/bin/bash
                 echo '
@@ -215,14 +215,14 @@ def create_infrastructure(config):
                 }}' > /etc/scylla/scylla.yaml
                 """
             if i == 0:
-                tags = {"Name": f"{config["cluster_name"]}"+ "_" + f"instance_{region}_{i}", "Type": "Seed"}
+                tags = {"Name": f"{config["cluster_name"]}"+ "_" + f"instance_{region}_{i}", "Group": "Seed", "Type": "Scylla"}
                 user_data_script = f"""\
                 #!/bin/bash
                 echo '
                 {{
                 "scylla_yaml": {{
                     "cluster_name": "{config['cluster_name']}",
-                    "start_scylla_on_first_boot": false
+                    "start_scylla_on_first_boot": true
                 }}
                 }}' > /etc/scylla/scylla.yaml
                 """
