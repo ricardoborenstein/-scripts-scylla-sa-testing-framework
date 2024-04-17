@@ -64,6 +64,8 @@ def create_infrastructure(config):
     for region in config['regions']:
         details = config['regions'][region]
         num_nodes = details['nodes']
+        num_loaders = details['loaders']
+        loaders_type = details['loaders_type']
         cidr = details['cidr']
         tags = {"Name": f"{config["cluster_name"]}"+ "_" + f"{region}-VPC", "Type": "VPC"}
         vpc_id = f"vpc_{region}"
@@ -143,24 +145,46 @@ def create_infrastructure(config):
                 "tags": tags
             }
   
-        ami_id = f"ami_{region}"
-        ami = aws_ami(ami_id, provider=region, most_recent=True,
-                      filters=[{"name": "name", "values": [f"ScyllaDB Enterprise* {config["scylla_version"]}"]},
-                               {"name": "virtualization-type", "values": ["hvm"]},
-                               {"name": "root-device-type", "values": ["ebs"]},
-                               {"name": "architecture", "values": ["x86_64"]}],
-                      owners=["158855661827"])
-        ts += ami
-        data["aws_ami"][ami_id] = {
+        # ScyllaDB AMI
+        scylla_ami_id = f"scylla_ami_{region}"
+        scylla_ami = aws_ami(scylla_ami_id, provider=region, most_recent=True,
+                             filter=[{"name": "name", "values": [f"ScyllaDB Enterprise* {config['scylla_version']}"]},
+                                      {"name": "virtualization-type", "values": ["hvm"]},
+                                      {"name": "root-device-type", "values": ["ebs"]},
+                                      {"name": "architecture", "values": ["x86_64"]}],
+                             owners=["158855661827"])
+        ts += scylla_ami
+        data["aws_ami"][scylla_ami_id] = {
             "provider": f"aws.{region}",
             "most_recent": True,
             "filter": [
-                {"name": "name", "values": [f"ScyllaDB Enterprise* {config["scylla_version"]}"]},
+                {"name": "name", "values": [f"ScyllaDB Enterprise* {config['scylla_version']}"]},
                 {"name": "virtualization-type", "values": ["hvm"]},
                 {"name": "root-device-type", "values": ["ebs"]},
                 {"name": "architecture", "values": ["x86_64"]}
             ],
             "owners": ["158855661827"]
+        }
+
+        # Ubuntu AMI
+        ubuntu_ami_id = f"ubuntu_ami_{region}"
+        ubuntu_ami = aws_ami(ubuntu_ami_id, provider=region, most_recent=True,
+                             filter=[{"name": "name", "values": ['ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*']},
+                                      {"name": "state", "values": ["available"]},
+                                      {"name": "architecture", "values": ["x86_64"]},
+                                      {"name": "root-device-type", "values": ["ebs"]}],
+                             owners=["099720109477"])
+        ts += ubuntu_ami
+        data["aws_ami"][ubuntu_ami_id] = {
+            "provider": f"aws.{region}",
+            "most_recent": True,
+            "filter": [
+                {"name": "name", "values": ['ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*']},
+                {"name": "state", "values": ["available"]},
+                {"name": "architecture", "values": ["x86_64"]},
+                {"name": "root-device-type", "values": ["ebs"]}
+            ],
+            "owners": ["099720109477"]
         }
         
         for i in range(num_nodes):
@@ -171,7 +195,7 @@ def create_infrastructure(config):
             if i != 0:
                 instance_id_seed = f"instance_{region}_0"
                 seed_instances[region] = f"${{aws_instance.{instance_id_seed}.private_ip}}"
-                tags = {"Name": f"{config["cluster_name"]}"+ "_" + f"instance_{region}_0", "Type": "Peer"}
+                tags = {"Name": f"{config["cluster_name"]}"+ "_" + f"instance_{region}_{i}", "Type": "Peer"}
                 user_data_script = f"""\
                 #!/bin/bash
                 echo '
@@ -189,7 +213,7 @@ def create_infrastructure(config):
                 }}' > /etc/scylla/scylla.yaml
                 """
             if i == 0:
-                tags = {"Name": f"{config["cluster_name"]}"+ "_" + f"instance_{region}_0", "Type": "Seed"}
+                tags = {"Name": f"{config["cluster_name"]}"+ "_" + f"instance_{region}_{i}", "Type": "Seed"}
                 user_data_script = f"""\
                 #!/bin/bash
                 echo '
@@ -203,15 +227,30 @@ def create_infrastructure(config):
             
             instance_id = f"instance_{region}_{i}"
             instance = aws_instance(instance_id, provider=region,
-                                    ami=f"${{data.aws_ami.{ami_id}.id}}", instance_type="i4i.large",
+                                    ami=f"${{data.aws_ami.{scylla_ami_id}.id}}", instance_type="i4i.large",
                                     subnet_id=f"${{aws_subnet.{subnet_id}.id}}",user_data=user_data_script,tags=tags)
             ts += instance
             resources["aws_instance"][instance_id] = {
                 "provider": f"aws.{region}",
-                "ami": f"${{data.aws_ami.{ami_id}.id}}",
+                "ami": f"${{data.aws_ami.{scylla_ami_id}.id}}",
                 "instance_type": "i4i.large",
                 "subnet_id": f"${{aws_subnet.{subnet_id}.id}}",
                 "user_data": user_data_script,
+                "tags": tags
+            }
+
+    for i in range(num_loaders):            
+            instance_id = f"loader_{region}_{i}"
+            tags = {"Name": f"{config["cluster_name"]}"+ "_" + f"loader_{region}_0", "Type": "Loader"}
+            instance = aws_instance(instance_id, provider=region,
+                                    ami=f"${{data.aws_ami.{ubuntu_ami_id}.id}}", instance_type=loaders_type,
+                                    subnet_id=f"${{aws_subnet.{subnet_id}.id}}",tags=tags)
+            ts += instance
+            resources["aws_instance"][instance_id] = {
+                "provider": f"aws.{region}",
+                "ami": f"${{data.aws_ami.{ubuntu_ami_id}.id}}",
+                "instance_type": loaders_type,
+                "subnet_id": f"${{aws_subnet.{subnet_id}.id}}",
                 "tags": tags
             }
 
@@ -276,8 +315,8 @@ if __name__ == "__main__":
         "cluster_name": "Ricardo-ScyllaCluster1",
         "scylla_version": "2024.1.2",
         "regions": {
-            "us-east-1": {"nodes": 3, "cidr": "10.0.0.0/16", "az_mode": "multi-az"},
-            "us-west-2": {"nodes": 2, "cidr": "10.1.0.0/16", "az_mode": "single-az"}
+            "us-east-1": {"nodes": 3, "scylla_node_type": "i4i.large" , "loaders": 3 , "loaders_type": "m5.large" ,"cidr": "10.0.0.0/16", "az_mode": "multi-az"},
+            "us-west-2": {"nodes": 2, "scylla_node_type": "i4i.large" , "loaders": 3 , "loaders_type": "m5.large" ,"cidr": "10.1.0.0/16", "az_mode": "single-az"}
         }
     }
 
