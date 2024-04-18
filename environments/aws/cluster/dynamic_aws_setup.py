@@ -65,7 +65,6 @@ def create_infrastructure(config):
     data = {"aws_ami": {}}
     vpc_ids = {}  # Correctly initializing the dictionary to store VPC IDs.
     seed_instances = {}
-    primary_seed_ip = None  # This will store the IP of the primary seed
     primary_region = list(config['regions'].keys())[0]  # Automatically assign the first region as primary
 
     for region in config['regions']:
@@ -75,6 +74,7 @@ def create_infrastructure(config):
         loaders_type = details['loaders_type']
         scylla_type = details['scylla_node_type']
         key_name = config['aws_key_pair_name']
+        monitoring_type = config['monitoring_type']
         cidr = details['cidr']
         tags = {"Name": f"{config["cluster_name"]}"+ "_" + f"{region}-VPC", "Type": "VPC","Project": config['cluster_name']}
         vpc_id = f"vpc_{region}"
@@ -268,6 +268,38 @@ def create_infrastructure(config):
             ],
             "owners": ["099720109477"]
         }
+        first_region = next(iter(config['regions']))  # Get the first region key from the dictionary
+        if region == first_region:
+            # Create monitoring instance only for the first region
+            monitoring_instance_id = f"monitoring_{region}"
+            monitoring_tags = {
+                "Name": f"{config['cluster_name']}_{region}_monitoring",
+                "Type": "Monitoring",
+                "Project": config['cluster_name']
+            }
+            
+            # Ensure the AMI ID and instance type variables are correctly named and used
+            monitoring_instance = aws_instance(
+                monitoring_instance_id, provider=region,
+                ami=f"${{data.aws_ami.{ubuntu_ami_id}.id}}",  # Assuming ubuntu_ami_id is defined as per the region
+                instance_type=monitoring_type,  # Ensure 'monitoring_type' is defined in your region details
+                vpc_security_group_ids=[f"${{aws_security_group.{sg_id}.id}}"],
+                subnet_id=f"${{aws_subnet.subnet_{region}_0.id}}",  # Example subnet ID for monitoring
+                tags=monitoring_tags,
+                key_name=key_name,
+                depends_on=[f"aws_security_group.{sg_id}"]
+            )
+            ts += monitoring_instance
+            resources["aws_instance"][monitoring_instance_id] = {
+                "provider": f"aws.{region}",
+                "ami": f"${{data.aws_ami.{ubuntu_ami_id}.id}}",
+                "instance_type": monitoring_type,
+                "subnet_id": f"${{aws_subnet.subnet_{region}_0.id}}",
+                "vpc_security_group_ids": [f"${{aws_security_group.{sg_id}.id}}"],
+                "tags": monitoring_tags,
+                "key_name": key_name,
+                "depends_on": [f"aws_security_group.{sg_id}"]
+            }      
         
         for i in range(num_nodes):
             instance_id = f"instance_{region}_{i}"
@@ -275,19 +307,20 @@ def create_infrastructure(config):
             seed_instances[region] = f"${{aws_instance.{instance_id}.private_ip}}"
             # Check if this is the first instance (seed instance) for the region
             if i == 0:
+                
                 tags = {"Name": f"{config['cluster_name']}_{region}_instance_{i}", "Group": "Seed", "Type": "Scylla","Project": config['cluster_name']}
                 if region == primary_region:
                     # This is the primary seed instance, it does not need a seed provider
                     seeds = ""  # No seeds needed for the primary seed itself
                     start_on_boot = "true"
                     user_data_script = f"""
-    {{
-        "scylla_yaml": {{
-            "cluster_name": "{config['cluster_name']}",
-        }},
-        "start_scylla_on_first_boot": {start_on_boot}
-    }}
-    """
+                    {{
+                        "scylla_yaml": {{
+                            "cluster_name": "{config['cluster_name']}",
+                        }},
+                        "start_scylla_on_first_boot": {start_on_boot}
+                    }}
+                    """
                 else:
                     tags = {"Name": f"{config['cluster_name']}_{region}_instance_{i}", "Group": "Seed2", "Type": "Scylla","Project": config['cluster_name']}
                     # Use the primary region's seed IP for the first instance of other regions
@@ -295,40 +328,40 @@ def create_infrastructure(config):
                     start_on_boot = "false"
                     user_data_script = f"""
 
-    {{
-        "scylla_yaml": {{
-            "cluster_name": "{config['cluster_name']}",
-            "seed_provider": [{{
-                "class_name": "org.apache.cassandra.locator.SimpleSeedProvider",
-                "parameters": [{{
-                    "seeds": "{seeds}"
-                }}]
-            }}],
-            
-        }},
-        "start_scylla_on_first_boot": {start_on_boot}
-    }}
-    """
+                        {{
+                            "scylla_yaml": {{
+                                "cluster_name": "{config['cluster_name']}",
+                                "seed_provider": [{{
+                                    "class_name": "org.apache.cassandra.locator.SimpleSeedProvider",
+                                    "parameters": [{{
+                                        "seeds": "{seeds}"
+                                    }}]
+                                }}],
+                                
+                            }},
+                            "start_scylla_on_first_boot": {start_on_boot}
+                        }}
+                        """
             else:
                 tags = {"Name": f"{config['cluster_name']}_{region}_instance_{i}", "Group": "NonSeed", "Type": "Scylla","Project": config['cluster_name']}
                 # Non-seed instances use the primary seed's IP
                 seeds = f"${{aws_instance.instance_{primary_region}_0.private_ip}}"
                 start_on_boot = "false"
                 user_data_script = f"""
-    {{
-        "scylla_yaml": {{
-            "cluster_name": "{config['cluster_name']}",
-            "seed_provider": [{{
-                "class_name": "org.apache.cassandra.locator.SimpleSeedProvider",
-                "parameters": [{{
-                    "seeds": "{seeds}"
-                }}]
-            }}],
-            
-        }},
-        "start_scylla_on_first_boot": {start_on_boot}
-    }}
-    """
+                    {{
+                        "scylla_yaml": {{
+                            "cluster_name": "{config['cluster_name']}",
+                            "seed_provider": [{{
+                                "class_name": "org.apache.cassandra.locator.SimpleSeedProvider",
+                                "parameters": [{{
+                                    "seeds": "{seeds}"
+                                }}]
+                            }}],
+                            
+                        }},
+                        "start_scylla_on_first_boot": {start_on_boot}
+                    }}
+                    """
         
             #instance_id = f"instance_{region}_{i}"
             instance = aws_instance(instance_id, provider=region,
@@ -450,6 +483,7 @@ if __name__ == "__main__":
             "us-west-2": {"nodes": 2, "scylla_node_type": "i4i.large" , "loaders": 0 , "loaders_type": "m5.large" ,"cidr": "10.1.0.0/16", "az_mode": "single-az"}
         },
         "aws_key_pair_name" : "ricardo-terraform",
+        "monitoring_type" : "m5.large"
     }
 
     terraform_script = create_infrastructure(config)

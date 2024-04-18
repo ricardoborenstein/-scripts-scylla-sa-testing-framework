@@ -5,7 +5,8 @@ aws_setup() {
     set -e
     export AWS_PROFILE=DevOpsAccessRole
     cd aws/cluster/
-    python3 configure_vars.py
+    #python3 configure_vars.py
+    python3 dynamic_aws_setup.py
     # Initialize Terraform (download providers, etc.)
     terraform init
     # Apply the Terraform configuration
@@ -39,9 +40,10 @@ aws_config(){
     python3 configure_vars_ansible.py
     # Install Scylla
     set -e
+    ansible-playbook start_other_dcs.yml
     ansible-playbook restart_nonseed.yml
     ansible-playbook get_monitoring_config.yml
-    ansible-playbook install_monitoring.yml
+    ansible-playbook install_monitoring.yml 
     ansible-playbook install_loader.yml
     set +e
     echo "System is ready for testing."
