@@ -2,12 +2,12 @@
 plugin: aws_ec2
 
 regions:
- - {{ aws_region }}
+{{ regions }}
 
 filters:
  instance-state-name: 'running'
  tag:Project:
-   - '{{ custom_name }}'
+   - '{{ cluster_name }}'
 
 groups:
   scylla:   (tags['Type'] is defined and tags['Type'] == 'Scylla')
@@ -15,6 +15,8 @@ groups:
   aws_monitor: (tags['Type'] is defined and tags['Type'] == 'Monitoring')
   scylla_nonseed: (tags['Group'] is defined and tags['Group'] == 'NonSeed')
   scylla_seed: (tags['Group'] is defined and tags['Group'] == 'Seed')
+  scylla_seed2: (tags['Group'] is defined and tags['Group'] == 'Seed2')
+
 
 keyed_groups:
   # Add hosts to tag_Name_Value groups for each Name/Value tag pair

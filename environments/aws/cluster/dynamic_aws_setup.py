@@ -50,18 +50,30 @@ def create_infrastructure(config):
     for region in config['regions']:
         ts += provider.aws(alias=region, region=region)
 
-    resources = {
-        "aws_vpc": {},
-        "aws_subnet": {},
-        "aws_instance": {},
-        "aws_vpc_peering_connection": {},
-        "aws_vpc_peering_connection_accepter": {},
-        "aws_security_group": {},
-        "aws_internet_gateway": {},
-        "aws_route_table" : {},
-        "aws_route_table_association": {},
-        "aws_route" : {}
-    }
+    if len(config['regions']) > 1:
+        resources = {
+            "aws_vpc": {},
+            "aws_subnet": {},
+            "aws_instance": {},
+            "aws_vpc_peering_connection": {},
+            "aws_vpc_peering_connection_accepter": {},
+            "aws_security_group": {},
+            "aws_internet_gateway": {},
+            "aws_route_table" : {},
+            "aws_route_table_association": {},
+            "aws_route" : {}
+        }
+    else: 
+        resources = {
+            "aws_vpc": {},
+            "aws_subnet": {},
+            "aws_instance": {},
+            "aws_security_group": {},
+            "aws_internet_gateway": {},
+            "aws_route_table" : {},
+            "aws_route_table_association": {},
+            "aws_route" : {}
+        }
     data = {"aws_ami": {}}
     vpc_ids = {}  # Correctly initializing the dictionary to store VPC IDs.
     seed_instances = {}
@@ -479,11 +491,11 @@ if __name__ == "__main__":
         "cluster_name": "Ricardo-ScyllaCluster1",
         "scylla_version": "2024.1.2",
         "regions": {
-            "us-east-1": {"nodes": 3, "scylla_node_type": "i4i.large" , "loaders": 3 , "loaders_type": "m5.large" ,"cidr": "10.0.0.0/16", "az_mode": "multi-az"},
-            "us-west-2": {"nodes": 2, "scylla_node_type": "i4i.large" , "loaders": 0 , "loaders_type": "m5.large" ,"cidr": "10.1.0.0/16", "az_mode": "single-az"}
+            "us-east-1": {"nodes": 3, "scylla_node_type": "i3en.3xlarge" , "loaders": 3 , "loaders_type": "m5.2xlarge" ,"cidr": "10.0.0.0/16", "az_mode": "single-az"},
+           # "us-west-2": {"nodes": 2, "scylla_node_type": "i4i.large" , "loaders": 0 , "loaders_type": "m5.large" ,"cidr": "10.1.0.0/16", "az_mode": "single-az"}
         },
         "aws_key_pair_name" : "ricardo-terraform",
-        "monitoring_type" : "m5.large"
+        "monitoring_type" : "m5.xlarge"
     }
 
     terraform_script = create_infrastructure(config)

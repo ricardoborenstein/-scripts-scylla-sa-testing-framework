@@ -1,0 +1,10 @@
+{
+        "cluster_name": "Ricardo-ScyllaCluster1",
+        "scylla_version": "2024.1.2",
+        "regions": {
+            "us-east-1": {"nodes": 3, "scylla_node_type": "i3en.3xlarge" , "loaders": 3 , "loaders_type": "m5.2xlarge" ,"cidr": "10.0.0.0/16", "az_mode": "single-az"},
+            "us-west-2": {"nodes": 2, "scylla_node_type": "i4i.large" , "loaders": 0 , "loaders_type": "m5.large" ,"cidr": "10.1.0.0/16", "az_mode": "single-az"}
+        },
+        "aws_key_pair_name" : "ricardo-terraform",
+        "monitoring_type" : "m5.xlarge"
+}

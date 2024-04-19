@@ -26,7 +26,8 @@ aws_setup() {
     python3 configure_vars_ansible.py
     # Install Scylla
     set -e
-    ansible-playbook restart_nonseed.yml
+    ansible-playbook start_other_dcs.yml
+    ansible-playbook start_nonseed.yml
     ansible-playbook get_monitoring_config.yml
     ansible-playbook install_monitoring.yml
     ansible-playbook install_loader.yml

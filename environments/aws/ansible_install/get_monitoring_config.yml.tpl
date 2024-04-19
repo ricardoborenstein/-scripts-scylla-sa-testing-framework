@@ -11,7 +11,7 @@
 
     - name: Generate Scylla Monitoring configuration file remotely
       ansible.builtin.shell: |
-        nodetool status | python3 genconfig.py -NS -c '{{ custom_name }}'
+        nodetool status | python3 genconfig.py -NS -c '{{ cluster_name }}'
       run_once: true
 
     - name: Copy scylla_servers.yml to local

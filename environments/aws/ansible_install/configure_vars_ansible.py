@@ -4,7 +4,7 @@ import yaml
 from packaging import version
 from pathlib import Path
 # Define file paths
-CFG_FILE = "./../../variables.cfg"
+CFG_FILE = "./../../variables.yml"
 ANSIBLE_INVENTORY_TEMPLATE_FILE = "./scylla.aws_ec2.yaml.tpl"
 ANSIBLE_INVENTORY_OUTPUT_FILE = "./inventory/scylla.aws_ec2.yaml"
 ANSIBLE_CONFIG_TEMPLATE_FILE = "./ansible.cfg.tpl"
@@ -23,42 +23,53 @@ def write_output_file(PATH, contents):
     with open(PATH, "w") as output_file:
         output_file.write(contents)
 
+def load_template_file_inventory(template_path, variables):
+    with open(template_path, 'r') as file:
+        template = file.read()
+    #print("Regions found:", variables['regions'].keys())  # Debug output
+    # Generate regions content properly formatted as a YAML list
+    regions_content = "\n".join(f" - {region}" for region in variables['regions'].keys())
+    #print("Formatted Regions Content:\n", regions_content)  # Debug output
+    
+    # Replace the placeholder in the template with the formatted regions content
+    content = re.sub(r'{{\s*regions\s*}}', regions_content, template)
+    content = re.sub(r'{{\s*cluster_name\s*}}', variables['cluster_name'], content)
+
+    return content
+
 def load_template_file(PATH, variables):
-    # Process the template file
     with open(PATH, "r") as template_file:
         content = template_file.read()
         for key, value in variables.items():
-            # Directly replace placeholders in the template without escaping
-            # Ensure to trim the variable values to remove any leading/trailing whitespace
-            trimmed_value = value.strip()
-            content = re.sub(f"\\{{{{ {key} \\}}}}", trimmed_value, content)
+            placeholder = f"{{{{ {key} }}}}"  # Adjusted to match more complex placeholders
+            if isinstance(value, list):  # Example condition to convert list to string if needed
+                value = ', '.join(map(str, value))
+            elif isinstance(value, dict):  # Example condition to convert dict to string if needed
+                value = ', '.join([f"{k}={v}" for k, v in value.items()])
+            content = content.replace(placeholder, str(value))  # Ensure conversion to string
         return content
-
 # Load variables from the cfg file
 variables = {}
-with open(CFG_FILE, "r") as cfg_file:
-    for line in cfg_file:
-        if '=' in line:
-            parts = line.strip().split('=', 1)  # Split by the first '=' found
-            key = parts[0].strip()  # Remove any leading/trailing whitespace from the key
-            value = clean_value(parts[1].strip())  # Clean the value using the defined function
-            variables[key] = value
+with open(CFG_FILE, 'r') as file:
+    variables = yaml.safe_load(file)
+
 
 # Check the 'availability_zone' variable and set 'subnet_count' accordingly
 #print(variables.get("availability_zone"))
-if variables.get("availability_zone") == "Multi":
-    variables["subnet_count"] = "3"
-elif variables.get("availability_zone") == "Single":
-    variables["subnet_count"] = "1"
-else:
-    # Default or error handling if needed
-    print("Warning: 'availability_zone' not set to 'Multi' or 'Single'. Please check your variables.cfg.")
+# if variables.get("availability_zone") == "Multi":
+#     variables["subnet_count"] = "3"
+# elif variables.get("availability_zone") == "Single":
+#     variables["subnet_count"] = "1"
+# else:
+#     # Default or error handling if needed
+#     print("Warning: 'availability_zone' not set to 'Multi' or 'Single'. Please check your variables.cfg.")
 
-content = load_template_file(ANSIBLE_INVENTORY_TEMPLATE_FILE, variables)
-write_output_file(ANSIBLE_INVENTORY_OUTPUT_FILE, content)
-
-content = load_template_file(ANSIBLE_CONFIG_TEMPLATE_FILE, variables)
-write_output_file(ANSIBLE_CONFIG_OUTPUT_FILE, content)
+inventory_content = load_template_file_inventory(ANSIBLE_INVENTORY_TEMPLATE_FILE, variables)
+with open(ANSIBLE_INVENTORY_OUTPUT_FILE, "w") as f:
+    f.write(inventory_content)
+    
+# content = load_template_file(ANSIBLE_CONFIG_TEMPLATE_FILE, variables)
+# write_output_file(ANSIBLE_CONFIG_OUTPUT_FILE, content)
 
 content = load_template_file(ANSIBLE_GET_MONITORING_CONFIG_FILE, variables)
 write_output_file(ANSIBLE_GET_MONITORING_CONFIG_OUTPUT_FILE, content)
