@@ -3,7 +3,7 @@ from terrascript import Terrascript
 import terrascript.provider as provider
 from terrascript.aws.r import aws_vpc, aws_subnet, aws_instance, aws_vpc_peering_connection, aws_vpc_peering_connection_accepter,aws_security_group,aws_internet_gateway,aws_route_table,aws_route_table_association,aws_route
 from terrascript.aws.d import aws_ami , aws_availability_zones
-
+import yaml
 
 # Define the ingress rules as a local variable
 # Define the ingress rules as a local variable
@@ -486,17 +486,22 @@ def create_infrastructure(config):
 
     return json.dumps(tf_config, indent=4)
 
+def read_config(file_path):
+    with open(file_path, 'r') as file:
+        return yaml.safe_load(file)
+
 if __name__ == "__main__":
-    config = {
-        "cluster_name": "Ricardo-ScyllaCluster1",
-        "scylla_version": "2024.1.2",
-        "regions": {
-            "us-east-1": {"nodes": 3, "scylla_node_type": "i3en.3xlarge" , "loaders": 3 , "loaders_type": "m5.2xlarge" ,"cidr": "10.0.0.0/16", "az_mode": "single-az"},
-           # "us-west-2": {"nodes": 2, "scylla_node_type": "i4i.large" , "loaders": 0 , "loaders_type": "m5.large" ,"cidr": "10.1.0.0/16", "az_mode": "single-az"}
-        },
-        "aws_key_pair_name" : "ricardo-terraform",
-        "monitoring_type" : "m5.xlarge"
-    }
+    # config = {
+    #     "cluster_name": "Ricardo-ScyllaCluster1",
+    #     "scylla_version": "2024.1.2",
+    #     "regions": {
+    #         "us-east-1": {"nodes": 3, "scylla_node_type": "i3en.3xlarge" , "loaders": 3 , "loaders_type": "m5.2xlarge" ,"cidr": "10.0.0.0/16", "az_mode": "single-az"},
+    #        # "us-west-2": {"nodes": 2, "scylla_node_type": "i4i.large" , "loaders": 0 , "loaders_type": "m5.large" ,"cidr": "10.1.0.0/16", "az_mode": "single-az"}
+    #     },
+    #     "aws_key_pair_name" : "ricardo-terraform",
+    #     "monitoring_type" : "m5.xlarge"
+    # }
+    config = read_config("../../variables.yml")
 
     terraform_script = create_infrastructure(config)
     with open('main.tf.json', 'w') as file:
