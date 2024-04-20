@@ -116,36 +116,36 @@ def parse_stress_template(template_path):
 
 def adjust_population_range(column_specs, num_loaders):
     adjusted_specs = []
-    regex_pattern = r"(\w+)\s*\(\s*(-?\d+)\s*\.\.\s*(-?\d+)\s*\)"  # Regex to include negative numbers
+    regex_pattern = r"uniform\((-?\d+)\.\.(-?\d+)\)"  # Regex for capturing uniform distribution ranges
 
     for spec in column_specs:
         new_spec = {'name': spec['name']}  # Always include the name
         if 'population' in spec:
-            if 'is_partition_key' in spec and spec['is_partition_key']:
-                match = re.match(regex_pattern, spec['population'])
-                if match:
-                    pop_type, start, end = match.groups()
-                    start, end = int(start), int(end)
-                    total_range = end - start + 1
-                    range_per_loader = total_range // num_loaders
-                    remainder = total_range % num_loaders
+            # Handle population range for partition keys
+            match = re.match(regex_pattern, spec['population'])
+            if match:
+                start, end = int(match.group(1)), int(match.group(2))
+                total_range = end - start + 1
+                range_per_loader = total_range // num_loaders
+                remainder = total_range % num_loaders
 
-                    new_ranges = []
-                    current_start = start
-                    for i in range(num_loaders):
-                        current_end = current_start + range_per_loader - 1
-                        if i < remainder:
-                            current_end += 1
-                        new_ranges.append(f"{pop_type}({current_start}..{current_end})")
-                        current_start = current_end + 1
+                new_ranges = []
+                current_start = start
+                for i in range(num_loaders):
+                    current_end = current_start + range_per_loader - 1
+                    if i < remainder:
+                        current_end += 1
+                    new_ranges.append(f"uniform({current_start}..{current_end})")
+                    current_start = current_end + 1
 
-                    new_spec['population'] = new_ranges  # Adjusted ranges replace the original population
-                else:
-                    new_spec['population'] = [spec['population']] * num_loaders  # Non-matching but partition key, replicate original
+                new_spec['population'] = new_ranges
             else:
-                new_spec['population'] = [spec['population']] * num_loaders  # Non-partition keys, replicate original
+                new_spec['population'] = [spec['population']] * num_loaders
+        elif 'size' in spec:
+            # Directly assign fixed size without list wrapping
+            new_spec['size'] = spec['size']
         adjusted_specs.append(new_spec)
-    
+
     return adjusted_specs
 
 
@@ -154,7 +154,7 @@ def create_populate_files(base_output_path, num_loaders, adjusted_specs, base_da
     for i in range(num_loaders):
         loader_data = dict(base_data)  # Deep copy of the base data
         loader_data['columnspec'] = [
-            {k: (v[i] if k == 'population' else v) for k, v in spec.items()} for spec in adjusted_specs
+            {k: (v[i] if isinstance(v, list) else v) for k, v in spec.items()} for spec in adjusted_specs
         ]
 
         if 'keyspace_definition' in loader_data:
