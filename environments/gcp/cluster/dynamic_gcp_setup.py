@@ -8,7 +8,6 @@ import os
 import math
 
 # Define the ingress rules as a local variable
-# Define the ingress rules as a local variable
 ingress_rules = [
     {"ports": ["443"], "protocol": "tcp", "description": "HTTPS access", "ranges": ["0.0.0.0/0"]},
     {"ports": ["3000"], "protocol": "tcp", "description": "Monitoring access", "ranges": ["0.0.0.0/0"]},
