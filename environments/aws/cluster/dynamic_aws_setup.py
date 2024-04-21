@@ -85,7 +85,7 @@ def create_infrastructure(config):
         num_loaders = details['loaders']
         loaders_type = details['loaders_type']
         scylla_type = details['scylla_node_type']
-        key_name = config['aws_key_pair_name']
+        key_name = config['key_pair_name']
         monitoring_type = config['monitoring_type']
         cidr = details['cidr']
         tags = {"Name": f"{config["cluster_name"]}"+ "_" + f"{region}-VPC", "Type": "VPC","Project": config['cluster_name']}
@@ -505,4 +505,4 @@ if __name__ == "__main__":
 
     terraform_script = create_infrastructure(config)
     with open('main.tf.json', 'w') as file:
-        file.write(terraform_script)
+        file.write(str(terraform_script))

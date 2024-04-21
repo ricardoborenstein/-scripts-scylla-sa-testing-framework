@@ -10,16 +10,6 @@ aws_setup() {
     # Initialize Terraform (download providers, etc.)
     terraform init
     # Apply the Terraform configuration
-    # Check if Terraform apply is needed
-    # terraform plan -detailed-exitcode
-    # exitcode=$?
-    # if [ $exitcode -eq 2 ]; then
-    #     # Apply the Terraform configuration if changes are detected
-    #     echo "Applying Terraform changes..."
-    #     terraform apply -auto-approve
-    # else
-    #     echo "No Terraform changes detected, skipping apply."
-    # fi
     terraform apply -auto-approve
     sleep 5
     cd ../ansible_install
@@ -69,6 +59,39 @@ aws_destroy() {
     cd aws/cluster/
     terraform destroy --auto-approve
 }
+
+
+# Function to perform AWS setup
+gcp_setup() {
+    set -e
+    cd gcp/cluster/
+    #python3 configure_vars.py
+    python3 dynamic_gcp_setup.py
+    # Initialize Terraform (download providers, etc.)
+    terraform init
+    # Apply the Terraform configuration
+    terraform apply -auto-approve
+    sleep 5
+    # cd ../ansible_install
+    # python3 configure_vars_ansible.py
+    # # Install Scylla
+    # set -e
+    # ansible-playbook start_other_dcs.yml
+    # ansible-playbook start_nonseed.yml
+    # ansible-playbook get_monitoring_config.yml
+    # ansible-playbook install_monitoring.yml
+    # ansible-playbook install_loader.yml
+    # set +e
+    echo "System is ready for testing."
+}
+
+gcp_destroy() {
+    set -e
+    cd gcp/cluster/
+    terraform destroy --auto-approve
+}
+
+
 # Main logic to process arguments
 process_arguments() {
     if [[ -n "$1" && -n "$2" ]]; then
@@ -116,8 +139,10 @@ execute_operation() {
             *) echo "Invalid AWS operation."; exit 1 ;;
         esac
     elif [ "$provider" == "gcp" ]; then
-        # Assuming future GCP-related operations might be added
-        echo "GCP operations not yet implemented."
+        case $operation in
+            "setup") gcp_setup ;;
+            "destroy") gcp_destroy ;;
+        esac
     else
         echo "Unsupported provider: $provider"
         exit 1
