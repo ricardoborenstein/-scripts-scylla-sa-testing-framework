@@ -44,6 +44,7 @@ def add_firewall_rules(ts, ingress_rules, egress_rules, network):
             firewall_rule = resource.google_compute_firewall(
                 rule_name,
                 name= rule_name,
+                project=config['gcp_project_id'],
                 network=network,
                 direction="INGRESS",
                 allow=[{
@@ -63,11 +64,12 @@ def add_firewall_rules(ts, ingress_rules, egress_rules, network):
         if isinstance(rule, dict) and 'description' in rule:
             rule_name = rule['description'].lower().replace(' ', '-') + '-egress'
             firewall_rule = resource.google_compute_firewall(
-                rule_name,
+                rule_name, name=rule_name,
                 network=network,
+                project=config['gcp_project_id'],
                 direction="EGRESS",
-                allowed=[{
-                    'IPProtocol': rule['protocol'],
+                allow=[{
+                    'protocol': rule['protocol'],
                     'ports': rule['ports']  # This will usually be an empty list for egress rules
                 }],
                 destination_ranges=rule['ranges'],
@@ -101,10 +103,15 @@ def create_infrastructure(config):
                                      routing_mode=routing_mode)
     ts += network
 
+    add_firewall_rules(ts, ingress_rules, egress_rules, network_name)
 
 
     for region, details in config['regions'].items():
-        ssh_keys_metadata = f"{config['key_pair_name']}:{open(os.path.expanduser(config['path_to_key']), 'r').read().strip()}"
+
+        with open(os.path.expanduser(config['path_to_key']), 'r') as file:
+            key_content = file.read().strip().replace('\n', '')
+        ssh_keys_metadata = f"ubuntu:{key_content}"
+
         az_count = 3 if details.get('az_mode', 'single-az') == 'multi-az' else 1
         azs = [f"{region}-a", f"{region}-b", f"{region}-c"][:az_count]
 

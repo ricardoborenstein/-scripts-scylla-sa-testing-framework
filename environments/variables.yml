@@ -1,13 +1,16 @@
 {
-        "cluster_name": "Ricardo-ScyllaCluster1",
-        "scylla_version": "2024.1.2",
+        "cluster_name": "ricardo-cluster",
+        "scylla_version": "2024-1-2",  #IF AWS "scylla_version": "2024.1.2"
+        "cloud" : "gcp",
+        "gcp_project_id" : "skilled-adapter-452",
         "regions": {
-            "us-east-1": {"nodes": 3, "scylla_node_type": "i4i.large" , "loaders": 3 , "loaders_type": "m5.2xlarge" ,"cidr": "10.0.0.0/16", "az_mode": "single-az"},
-            #"us-west-2": {"nodes": 3, "scylla_node_type": "i4i.large" , "loaders": 0 , "loaders_type": "m5.large" ,"cidr": "10.1.0.0/16", "az_mode": "single-az"}
+            "europe-central2": {"nodes": 3, "scylla_node_type": "n2-highmem-2" , "disk_size_gb" : 700, "loaders": 3 , "loaders_type": "n2-standard-4" ,"cidr": "10.0.0.0/16", "az_mode": "single-az"},
+        #     "us-east2": {"nodes": 3, "scylla_node_type": "n2-highmem-2" , "disk_size_gb" : 350, "loaders": 0 , "loaders_type": "n2-standard-4" ,"cidr": "10.0.0.0/16", "az_mode": "single-az"},
         },
-        "aws_key_pair_name" : "ricardo-terraform",
-        "monitoring_type" : "m5.xlarge",
+        "key_pair_name" : "ricardo-terraform",
+        "path_to_key" : "~/Downloads/ricardo-terraform.pub",
+        "monitoring_type" : "n2-standard-2",
         "cassandra-stress": {
-                "num_threads" : 64, "num_of_ops": "2584913952", "throttle" : "1000000/s" , "ratio" : "1:4", "template" : "audit"
+                "num_threads" : 64, "num_of_ops": "2584913952", "throttle" : "200000/s" , "ratio" : "1:4", "template" : "audit"
         }
 }
