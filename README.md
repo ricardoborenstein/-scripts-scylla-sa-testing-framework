@@ -14,7 +14,7 @@ This repository contains a script for deploying and managing ScyllaDB instances 
 - Python 3
 - Terraform
 - Ansible
-- AWS CLI configured (for AWS operations)
+- AWS CLI configured (for AWS operations) and key pair available in the region.
 - GCP SDK configured (for GCP operations)
 
 ## Ansible Requirements
@@ -70,4 +70,34 @@ To destroy the Scylla environment on GCP:
 ```
 
 ### Configuration Files
-variables.yml: Contains configuration variables like scylla_version. Ensure this file is configured properly before running the script.
+`variables.yml`
+This YAML file contains all the configurable parameters required by the deployment script. Adjust the settings in variables.yml to tailor the deployment to your needs. Below is an example highlighting some of the key parameters:
+
+
+```yaml
+cluster_name: "Ricardo Testing"
+scylla_version: "2024.1.4"
+gcp_project_id: "skilled-adapter-452" # Only relevant for GCP
+regions:
+  "us-east-1": 
+    nodes: 3
+    scylla_node_type: "i4i.large"
+    disk_size_gb: 700 # Only relevant for GCP
+    loaders: 3
+    loaders_type: "m5.large"
+    cidr: "10.0.0.0/16"
+    az_mode: "single-az"
+key_pair_name: "ricardo-terraform" # Only relevant for AWS
+path_to_key: "~/Downloads/ricardo-terraform.pub"
+monitoring_type: "m5.large"
+cassandra-stress:
+  num_threads: 64
+  num_of_ops: "1000000"
+  throttle: "21000/s"
+  ratio: "1:4"
+  template: "ott-audio-streaming"
+```
+
+#### Setting Up Multiple Regions
+The regions section of the`variables.yml` file allows you to configure multiple regions for deployment. Each region can have its own set of configurations such as the number of nodes, node type, disk size, and networking settings. This flexibility helps in customizing the deployment based on geographic requirements and resource availability.
+
