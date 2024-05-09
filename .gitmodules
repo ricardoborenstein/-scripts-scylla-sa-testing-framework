@@ -1,3 +1,6 @@
-[submodule "aws/ansible_install/scylla-ansible-roles"]
-	path = aws/ansible_install/scylla-ansible-roles
+[submodule "aws/ansible_install/roles"]
+	path = aws/ansible_install/roles
+	url = https://github.com/scylladb/scylla-ansible-roles/
+[submodule "gcp/ansible_install/roles"]
+	path = gcp/ansible_install/roles
 	url = https://github.com/scylladb/scylla-ansible-roles/
