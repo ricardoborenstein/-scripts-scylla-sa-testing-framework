@@ -4,6 +4,3 @@
 [submodule "environments/gcp/cluster/scylla-ansible-roles"]
 	path = environments/gcp/cluster/scylla-ansible-roles
 	url = https://github.com/scylladb/scylla-ansible-roles/
-[submodule "scylla-ansible-roles"]
-	path = scylla-ansible-roles
-	url = https://github.com/scylladb/scylla-ansible-roles/
