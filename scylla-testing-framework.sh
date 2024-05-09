@@ -25,10 +25,10 @@ update_scylla_version() {
     local formatted_version="$current_version"
     case "$provider" in
         "aws")
-            formatted_version="${current_version//_/.}"  # Ensure format uses dots
+            formatted_version="${current_version//-/.}"  # Ensure format uses dots
             ;;
         "gcp")
-            formatted_version="${current_version//./_}"  # Ensure format uses underscores
+            formatted_version="${current_version//./-}"  # Ensure format uses underscores
             ;;
         *)
             echo "Unsupported provider: $provider"
