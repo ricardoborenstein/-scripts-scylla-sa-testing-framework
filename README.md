@@ -25,8 +25,13 @@ Install the necessary Ansible roles using the following commands:
 ansible-galaxy role install geerlingguy.swap
 ansible-galaxy role install mrlesmithjr.mdadm
 ```
-
-
+## Python Environment Setup
+Before running the script, set up a Python virtual environment and install the required packages:
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
 ## Cloning the Repository
 
 When cloning the repository, also clone the submodules:
