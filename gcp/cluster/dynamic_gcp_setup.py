@@ -137,8 +137,13 @@ def create_infrastructure(config):
 
         azs = list_available_zones(config['gcp_project_id'], region)
         print(azs)
-        az_count = len(azs) if details.get('az_mode', 'single-az') == 'multi-az' else 1
-
+        # Determine number of AZs to use based on mode
+        if details.get('az_mode') == 'multi-az':
+            # Use all available zones up to a maximum of 3
+            az_count = min(len(azs), 3)
+        else:
+            # Use only one zone, typically the first available
+            az_count = 1
         # Create subnetworks and instances
         for i in range(az_count):
             subnetwork_name = f"{config['cluster_name']}-subnet-{region}-{i}"
@@ -156,6 +161,7 @@ def create_infrastructure(config):
 
             # Create nodes in this subnetwork
             for j in range(details['nodes']):
+                zone_index = j % az_count
                 node_name = f"{config['cluster_name']}-scylla-node-{region}-{j}"
                 disk_size_gb = details.get('disk_size_gb', 0)
                 num_local_ssds = math.ceil(disk_size_gb / 375)
@@ -166,7 +172,7 @@ def create_infrastructure(config):
                     name=node_name,
                     project=config['gcp_project_id'],
                     machine_type=details['scylla_node_type'],
-                    zone=azs[i % len(azs)],
+                    zone=azs[zone_index],
                     min_cpu_platform="Intel Ice Lake",
                     allow_stopping_for_update=True,
                     network_interface=[{
