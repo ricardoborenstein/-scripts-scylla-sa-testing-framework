@@ -6,6 +6,7 @@ import terrascript.data as data
 import yaml 
 import os
 import math
+from google.cloud import compute_v1
 
 # Define the ingress rules as a local variable
 ingress_rules = [
@@ -31,16 +32,31 @@ egress_rules = [
 ]
 
 
-def get_azs(region, ts):
-    azs = data.google.google_compute_zones(provider=region,version = "~> 5.0.0")
-    ts += azs  # This adds the data source to the script
-    return azs.names
+def list_available_zones(project_id, region):
+    """
+    Lists all available zones in a given region for the specified project.
+
+    Args:
+    project_id (str): Google Cloud project ID.
+    region (str): The region to query for available zones.
+    """
+    # Create a Compute Engine client
+    client = compute_v1.ZonesClient()
+
+    # Construct the full region path required by the API
+    region_name = f"projects/{project_id}/regions/{region}"
+
+    # List zones in the specified region
+    print(f"Available zones in the region {region}:")
+    request = compute_v1.ListZonesRequest(project=project_id, filter=f"name:{region}-*")
+    return [zone.name for zone in client.list(request=request)]  # This ensures the list contains only strings.
+
 
 def add_firewall_rules(ts, ingress_rules, egress_rules, network):
     # Process ingress rules
     for rule in ingress_rules:
         if isinstance(rule, dict) and 'description' in rule:
-            rule_name = rule['description'].lower().replace(' ', '-') + '-ingress'
+            rule_name = f"{config["cluster_name"]}-" + rule['description'].lower().replace(' ', '-') + '-ingress'
             firewall_rule = resource.google_compute_firewall(
                 rule_name,
                 name= rule_name,
@@ -64,7 +80,7 @@ def add_firewall_rules(ts, ingress_rules, egress_rules, network):
     # Process egress rules
     for rule in egress_rules:
         if isinstance(rule, dict) and 'description' in rule:
-            rule_name = rule['description'].lower().replace(' ', '-') + '-egress'
+            rule_name = f"{config["cluster_name"]}-"+ rule['description'].lower().replace(' ', '-') + '-egress'
             firewall_rule = resource.google_compute_firewall(
                 rule_name, name=rule_name,
                 network=network,
@@ -109,74 +125,75 @@ def create_infrastructure(config):
     add_firewall_rules(ts, ingress_rules, egress_rules, network_name)
 
 
+    with open(os.path.expanduser(config['path_to_key']), 'r') as file:
+        key_content = file.read().strip().replace('\n', '')
+    ssh_keys_metadata = f"ubuntu:{key_content}"
+    #azs = list_available_zones(config['gcp_project_id'], region)
+
+
     for region, details in config['regions'].items():
+        # Ensure provider for each region (if needed, else move this outside the loop)
+        ts += provider.google(project=config['gcp_project_id'], region=region)
 
-        with open(os.path.expanduser(config['path_to_key']), 'r') as file:
-            key_content = file.read().strip().replace('\n', '')
-        ssh_keys_metadata = f"ubuntu:{key_content}"
+        azs = list_available_zones(config['gcp_project_id'], region)
+        print(azs)
+        az_count = len(azs) if details.get('az_mode', 'single-az') == 'multi-az' else 1
 
-        az_count = 3 if details.get('az_mode', 'single-az') == 'multi-az' else 1
-        azs = [f"{region}-a", f"{region}-b", f"{region}-c"][:az_count]
-
-        for i, az in enumerate(azs):
-            subnetwork_name = f"{config["cluster_name"]}-subnet-{region}-{i}"
-            subnetwork = resource.google_compute_subnetwork(subnetwork_name,
+        # Create subnetworks and instances
+        for i in range(az_count):
+            subnetwork_name = f"{config['cluster_name']}-subnet-{region}-{i}"
+            subnetwork = resource.google_compute_subnetwork(
+                subnetwork_name,
                 project=config['gcp_project_id'],
-                name=f"{config["cluster_name"]}-subnet-{region}-{i}",
-                ip_cidr_range=f"10.0.{i}.0/24",  # Example CIDR, should be planned according to IPAM
+                name=subnetwork_name,
+                ip_cidr_range=f"10.0.{i}.0/24",
                 region=region,
                 network=network_name,
                 private_ip_google_access=True,
-                depends_on=[f"google_compute_network.{network_name}"] 
+                depends_on=[f"google_compute_network.{network_name}"]
             )
             ts += subnetwork
 
+            # Create nodes in this subnetwork
+            for j in range(details['nodes']):
+                node_name = f"{config['cluster_name']}-scylla-node-{region}-{j}"
+                disk_size_gb = details.get('disk_size_gb', 0)
+                num_local_ssds = math.ceil(disk_size_gb / 375)
+                disks = [{"device_name": f"local-ssd-{k}", "interface": "NVME"} for k in range(num_local_ssds)]
 
-        for i in range(details['nodes']):
-            node_name = f"{config['cluster_name']}-scylla-node-{region}-{i}"
-            disk_size_gb = details.get('disk_size_gb', 0)
-            num_local_ssds = math.ceil(disk_size_gb / 375)
-            disks = [{
-                "device_name": f"local-ssd-{j}",
-                "interface": "NVME",
-            } for j in range(1, num_local_ssds + 1)]  # Include at least 1 local SSD
-
-            node_instance = resource.google_compute_instance(
-                node_name,
-                name=node_name,
-                project=config['gcp_project_id'],
-                machine_type=details['scylla_node_type'],  # Define this in your config
-                zone=f"{region}-a",  # Adjust zone based on your setup
-                min_cpu_platform = "Intel Ice Lake",
-                allow_stopping_for_update = "true",
-                network_interface=[{
-                    "network": network_name,
-                    "subnetwork": f"{config['cluster_name']}-subnet-{region}-0",
-                    "subnetwork_project": config['gcp_project_id'],
-                    "access_config": [{}],
-                }],
-                boot_disk=[{
-                    "initialize_params": {
-                        "image": f"projects/scylla-images/global/images/scylladb-enterprise-{config['scylla_version']}",
+                node_instance = resource.google_compute_instance(
+                    node_name,
+                    name=node_name,
+                    project=config['gcp_project_id'],
+                    machine_type=details['scylla_node_type'],
+                    zone=azs[i % len(azs)],
+                    min_cpu_platform="Intel Ice Lake",
+                    allow_stopping_for_update=True,
+                    network_interface=[{
+                        "network": network_name,
+                        "subnetwork": subnetwork_name,
+                        "access_config": [{}],  # For external IP if required
+                    }],
+                    boot_disk=[{
+                        "initialize_params": {
+                            "image": f"projects/scylla-images/global/images/scylladb-enterprise-{config['scylla_version']}",
+                        },
+                    }],
+                    scratch_disk=disks,
+                    labels={
+                        "name": f"{config['cluster_name']}-{region}-scylla-node-{j}",
+                        "type": "scylla",
+                        "project": config['cluster_name'],
                     },
-                }],
-                scratch_disk = disks,
-                labels={
-                    "name": f"{config['cluster_name']}-{region}-scylla-node-{i}",
-                    "type": "scylla",
-                    "project": config['cluster_name'],
-                },
-                metadata={
-                    'ssh-keys': ssh_keys_metadata,  # Make sure to define this
-                },
-                service_account={
-                    "email": "default",
-                    "scopes": ["https://www.googleapis.com/auth/cloud-platform"]
-                },
-                # discard_local_ssd= "true",
-                depends_on=[f"google_compute_subnetwork.{subnetwork_name}"] 
-            )
-            ts += node_instance
+                    metadata={'ssh-keys': ssh_keys_metadata},
+                    service_account={
+                        "email": "default",
+                        "scopes": ["https://www.googleapis.com/auth/cloud-platform"]
+                    },
+                    depends_on=[f"google_compute_subnetwork.{subnetwork_name}"]
+                )
+                ts += node_instance
+
 
     first_region = next(iter(config['regions']))  # Get the first region key from the dictionary
 
@@ -198,7 +215,7 @@ def create_infrastructure(config):
                 machine_type=config['monitoring_type'],  # `monitoring_type` should be defined in your config for the region
                 allow_stopping_for_update = "true",
 
-                zone=f"{region}-a",  # Choose the zone, generally region followed by '-a', '-b', etc.
+                zone=azs[i % len(azs)],  # Choose the zone, generally region followed by '-a', '-b', etc.
                 network_interface=[{
                 "network": network_name,
                     "subnetwork": f"{subnetwork_name}",
