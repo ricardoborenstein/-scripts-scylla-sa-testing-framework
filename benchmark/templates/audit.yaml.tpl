@@ -1,0 +1,34 @@
+keyspace: feeds
+
+keyspace_definition: |
+  create keyspace feeds with replication = {'class': 'NetworkTopologyStrategy', '{{ datacenter }}': 3}  AND durable_writes = true;
+
+table: audit_items_new
+table_definition: |
+  CREATE TABLE feeds.audit_items_new (
+    fiid bigint,
+    account_id bigint,
+    data blob,
+    PRIMARY KEY ((fiid, account_id))
+    )
+
+columnspec:
+  - name: fiid
+    population: uniform(-3000000000000..-2000000000001)
+  - name: account_id
+    population: uniform(300000000001..1000000000001)
+  - name: data
+    size: fixed(2048)
+
+insert:
+  # How many partition to insert per batch
+  partitions: fixed(1)
+  # How many rows to update per partition
+  #select: fixed(1)/500
+  # UNLOGGED or LOGGED batch for insert
+  batchtype: UNLOGGED
+
+queries:
+  simple:
+    cql: select * from audit_items_new where fiid = ? and account_id = ?
+    fields: samerow
