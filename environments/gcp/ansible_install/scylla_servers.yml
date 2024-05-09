@@ -1,0 +1,7 @@
+- labels:
+    cluster: Ricardo-ScyllaCluster1
+    dc: us-east
+  targets:
+  - 10.0.2.163
+  - 10.0.2.70
+  - 10.0.2.159

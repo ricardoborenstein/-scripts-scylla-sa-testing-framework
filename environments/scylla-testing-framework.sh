@@ -1,9 +1,66 @@
 #!/bin/bash
 
+# Function to update scylla_version in YAML file based on cloud provider
+update_scylla_version() {
+    local provider="$1"
+    local yaml_file="variables.yml"  # specify your yaml file path
+
+    # Ensure the file exists
+    if [ ! -f "$yaml_file" ]; then
+        echo "Error: YAML file does not exist at the specified path: $yaml_file"
+        return 1
+    fi
+
+    # Extract the current version from the YAML file
+    local current_version=$(grep "scylla_version:" $yaml_file | awk -F\" '{print $2}')
+    
+    # Check extraction success
+    if [ -z "$current_version" ]; then
+        echo "Error: Failed to extract scylla_version from $yaml_file"
+        return 1
+    else
+        echo "Current version extracted: $current_version"
+    fi
+
+    local formatted_version="$current_version"
+    case "$provider" in
+        "aws")
+            formatted_version="${current_version//_/.}"  # Ensure format uses dots
+            ;;
+        "gcp")
+            formatted_version="${current_version//./_}"  # Ensure format uses underscores
+            ;;
+        *)
+            echo "Unsupported provider: $provider"
+            return 1
+            ;;
+    esac
+
+    # Check if reformatting is needed
+    if [ "$current_version" == "$formatted_version" ]; then
+        echo "No update needed, scylla_version already formatted for $provider."
+    else
+        # Update the file using sed according to OS
+        echo "Updating scylla_version for $provider..."
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            sed -i '' "s/scylla_version: \"$current_version\"/scylla_version: \"$formatted_version\"/" $yaml_file
+        else
+            sed -i "s/scylla_version: \"$current_version\"/scylla_version: \"$formatted_version\"/" $yaml_file
+        fi
+        echo "scylla_version updated from $current_version to $formatted_version."
+    fi
+
+    # Display updated line for verification
+    grep "scylla_version:" $yaml_file
+}
+
+
 # Function to perform AWS setup
 aws_setup() {
+    
     set -e
-    export AWS_PROFILE=DevOpsAccessRole
+    update_scylla_version "aws" 
+    #export AWS_PROFILE=DevOpsAccessRole
     cd aws/cluster/
     #python3 configure_vars.py
     python3 dynamic_aws_setup.py
@@ -55,7 +112,7 @@ aws_benchmark() {
 
 aws_destroy() {
     set -e
-    export AWS_PROFILE=DevOpsAccessRole
+    #export AWS_PROFILE=DevOpsAccessRole
     cd aws/cluster/
     terraform destroy --auto-approve
 }
@@ -64,6 +121,7 @@ aws_destroy() {
 # Function to perform AWS setup
 gcp_setup() {
     set -e
+    update_scylla_version "gcp" 
     cd gcp/cluster/
     #python3 configure_vars.py
     python3 dynamic_gcp_setup.py

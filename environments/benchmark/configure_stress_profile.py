@@ -206,7 +206,7 @@ variables_cfg = load_variables_from_yaml(variables_cfg_path)
 
 # Extract 'custom_name' and 'aws_region' from loaded variables for AWS data fetching
 cluster_name = variables_cfg['cluster_name']
-aws_key_pair_name = variables_cfg['aws_key_pair_name']
+aws_key_pair_name = variables_cfg['key_pair_name']
 cassandra_stress_config = variables_cfg['cassandra-stress']
 original_throttle = int(cassandra_stress_config['throttle'].replace('/s', ''))
 template_path = f'./templates/{cassandra_stress_config['template']}.yaml.tpl'

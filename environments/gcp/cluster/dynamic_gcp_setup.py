@@ -53,7 +53,9 @@ def add_firewall_rules(ts, ingress_rules, egress_rules, network):
                 }],
                 source_ranges=rule['ranges'],
                 priority=1000,
-                description=rule['description']
+                description=rule['description'],
+                depends_on=[f"google_compute_network.{network}"] 
+
             )
             ts += firewall_rule
         else:
@@ -74,7 +76,8 @@ def add_firewall_rules(ts, ingress_rules, egress_rules, network):
                 }],
                 destination_ranges=rule['ranges'],
                 priority=1000,
-                description=rule['description']
+                description=rule['description'],
+                depends_on=[f"google_compute_network.{network}"] 
             )
             ts += firewall_rule
         else:
