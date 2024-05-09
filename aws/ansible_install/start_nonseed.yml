@@ -1,6 +1,6 @@
 ---
-- name: Restart Scylla Server on Seed Nodes
-  hosts: scylla_seed2
+- name: Restart Scylla Server on NonSeed Nodes
+  hosts: scylla_nonseed
   become: yes  # This playbook needs to run with sudo to manage system services
   tasks:
     - name: Stop the Scylla service
@@ -8,9 +8,9 @@
         name: scylla-server
         state: stopped
 
-    - name: Wait for 120 seconds on the instance for scylla to start
+    - name: Wait for 300 seconds on the instance for scylla to start
       ansible.builtin.shell:
-        cmd:  sudo systemctl start scylla-server && sleep 600
+        cmd:  sudo systemctl start scylla-server && sleep 300
       changed_when: false
       throttle: 1
 
@@ -25,7 +25,7 @@
         until systemctl status scylla-server | grep -q "Status: \"serving\""; do sleep 10; done
       async: 360
       poll: 10
-      # This task waits up to 4 minutes (240 seconds), checking every 10 seconds, for the Scylla server to report it is in a 'serving' state.
+      # This task waits up to 6 minutes (60 seconds), checking every 10 seconds, for the Scylla server to report it is in a 'serving' state.
    
     - name: Check if Scylla service is active
       ansible.builtin.command: systemctl is-active scylla-server
