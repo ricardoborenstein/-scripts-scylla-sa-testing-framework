@@ -1,15 +1,3 @@
-*Ansible requirements:*
-```
-ansible-galaxy role install geerlingguy.swap
-
-ansible-galaxy role install mrlesmithjr.mdadm
-```
-
-When cloning the repo, also clone submodules:
-
-```
-git clone --recurse-submodules https://github.com/ricardoborenstein/scylla-sa-testing-framework.git
-```
 # Cloud Scylla Deployment Script
 
 This repository contains a script for deploying and managing ScyllaDB instances on cloud platforms such as AWS and GCP. The script supports various operations including setup, configuration, benchmarking, and destruction of cloud resources.
@@ -54,7 +42,7 @@ The main script is designed to be executed with two arguments specifying the clo
 
 ### General Syntax
 ```bash
-./deployment_script.sh [provider] [operation]
+./scylla-testing-framework.sh [provider] [operation]
 ```
 #### Supported Providers
 * aws: Amazon Web Services
@@ -68,12 +56,12 @@ The main script is designed to be executed with two arguments specifying the clo
 To set up Scylla on AWS:
 
 ```bash
-./deployment_script.sh aws setup
+./scylla-testing-framework.sh aws setup
 ```
 To destroy the Scylla environment on GCP:
 
 ``` bash
-./deployment_script.sh gcp destroy
+./scylla-testing-framework.sh gcp destroy
 ```
 
 ### Configuration Files
