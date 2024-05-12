@@ -34,7 +34,7 @@ ansible-galaxy role install mrlesmithjr.mdadm
 ## Python Environment Setup
 Before running the script, set up a Python virtual environment and install the required packages:
 ```bash
-python3 -m venv venv
+python3.12 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 ```
