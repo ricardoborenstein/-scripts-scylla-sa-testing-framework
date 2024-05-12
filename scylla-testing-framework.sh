@@ -68,17 +68,10 @@ aws_setup() {
     terraform init
     # Apply the Terraform configuration
     terraform apply -auto-approve
-    sleep 5
-    cd ../ansible_install
-    python3 configure_vars_ansible.py
-    # Install Scylla
-    set -e
-    ansible-playbook start_other_dcs.yml
-    ansible-playbook start_nonseed.yml
-    ansible-playbook get_monitoring_config.yml
-    ansible-playbook install_monitoring.yml
-    ansible-playbook install_loader.yml
+    sleep 60
     set +e
+    #aws_config()
+    
     echo "System is ready for testing."
 }
 
@@ -102,7 +95,7 @@ aws_config(){
 aws_benchmark() {
     cd ./benchmark/
     echo "Configuring stress profile"
-    python3 configure_stress_profile.py
+    python3 aws_configure_stress_profile.py
     # Load data and run benchmark
     cd ../aws/ansible_install
     echo "Starting benchmark..."
@@ -129,7 +122,26 @@ gcp_setup() {
     terraform init
     # Apply the Terraform configuration
     terraform apply -auto-approve
+    set +e
+    #gcp_config()
+    echo "System is ready for testing."
+}
+
+# Function to perform AWS benchmark
+gcp_benchmark() {
+    cd ./benchmark/
+    echo "Configuring stress profile"
+    python3 gcp_configure_stress_profile.py
+    # Load data and run benchmark
+    cd ../gcp/ansible_install
+    echo "Starting benchmark..."
+    ansible-playbook benchmark_start_load.yml
+    # Add additional benchmark commands here
+}
+
+gcp_config(){
     sleep 5
+    cd gcp/cluster/
     cd ../ansible_install
     python3 configure_vars_ansible.py
     # Install Scylla
@@ -140,7 +152,6 @@ gcp_setup() {
     ansible-playbook install_monitoring.yml
     ansible-playbook install_loader.yml
     set +e
-    echo "System is ready for testing."
 }
 
 gcp_destroy() {
@@ -199,6 +210,8 @@ execute_operation() {
     elif [ "$provider" == "gcp" ]; then
         case $operation in
             "setup") gcp_setup ;;
+            "config") gcp_config ;;
+            "benchmark") gcp_benchmark ;;
             "destroy") gcp_destroy ;;
         esac
     else

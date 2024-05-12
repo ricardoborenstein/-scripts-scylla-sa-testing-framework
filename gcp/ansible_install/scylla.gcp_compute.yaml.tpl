@@ -1,24 +1,25 @@
----
 plugin: gcp_compute
-
-regions:
-{{ regions }}
-
+projects:
+  - {{gcp_project_id}}
 filters:
- instance-state-name: 'running'
- tag:Project:
-   - '{{ cluster_name }}'
+ # - "status = RUNNING"
+  - labels.project:{{cluster_name}}
+auth_kind: application
+#service_account_email: "/Users/ricardo/.config/gcloud/application_default_credentials.json"
+
+scopes:
+  - 'https://www.googleapis.com/auth/cloud-platform'
+
+hostnames:
+  - name
+
+compose:
+  ansible_host: networkInterfaces[0].accessConfigs[0].natIP
 
 groups:
-  scylla:   (tags['Type'] is defined and tags['Type'] == 'Scylla')
-  gcp_loader: (tags['Type'] is defined and tags['Type'] == 'Loader')
-  gcp_monitor: (tags['Type'] is defined and tags['Type'] == 'Monitoring')
-  scylla_nonseed: (tags['Group'] is defined and tags['Group'] == 'NonSeed')
-  scylla_seed: (tags['Group'] is defined and tags['Group'] == 'Seed')
-  scylla_seed2: (tags['Group'] is defined and tags['Group'] == 'Seed2')
-
-
-keyed_groups:
-  # Add hosts to tag_Name_Value groups for each Name/Value tag pair
-  - prefix: tag
-    key: tags
+  scylla:   (labels['type'] is defined and labels['type'] == 'scylla')
+  gcp_loader: (labels['type'] is defined and labels['type'] == 'loader')
+  gcp_monitor: (labels['type'] is defined and labels['type'] == 'monitoring')
+  scylla_nonseed: (labels['group'] is defined and labels['group'] == 'nonseed')
+  scylla_seed: (labels['group'] is defined and labels['group'] == 'seed')
+  scylla_seed2: (labels['group'] is defined and labels['group'] == 'seed2')

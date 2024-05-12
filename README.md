@@ -17,6 +17,12 @@ This repository contains a script for deploying and managing ScyllaDB instances 
 - AWS CLI configured (for AWS operations) and key pair available in the region.
 - GCP SDK configured (for GCP operations)
 
+## GCP Auth
+
+```bash
+gcloud auth application-default login
+```
+
 ## Ansible Requirements
 
 Install the necessary Ansible roles using the following commands:

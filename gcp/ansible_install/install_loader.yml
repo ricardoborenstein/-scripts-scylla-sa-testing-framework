@@ -1,5 +1,5 @@
 - name: Install loader tools
-  hosts: aws_loader
+  hosts: gcp_loader
   tasks:
     - name: Ensure required tools are present
       apt: 

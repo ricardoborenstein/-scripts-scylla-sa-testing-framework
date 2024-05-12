@@ -34,6 +34,7 @@ def load_template_file_inventory(template_path, variables):
     # Replace the placeholder in the template with the formatted regions content
     content = re.sub(r'{{\s*regions\s*}}', regions_content, template)
     content = re.sub(r'{{\s*cluster_name\s*}}', variables['cluster_name'], content)
+    content = re.sub(r'{{\s*gcp_project_id\s*}}', variables['gcp_project_id'], content)
 
     return content
 

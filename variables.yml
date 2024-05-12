@@ -1,16 +1,16 @@
 {
-        cluster_name: "Ricardo Testing",
-        scylla_version: "2024.1.4", 
+        cluster_name: "ricardotesting",
+        scylla_version: "2024-1-4", 
   #      cloud : "aws",
         gcp_project_id : "skilled-adapter-452", #Only relevant for GCP
         regions: {
-            "us-east-1": {"nodes": 3, 
-                        "scylla_node_type": "i4i.large" , 
+            "us-east1": {"nodes": 3, 
+                        "scylla_node_type": "n2-highmem-2" , 
                         "disk_size_gb" : 700, #Only relevant for GCP
-                        "loaders": 3 , 
-                        "loaders_type": "m5.large" ,
+                        "loaders": 1 , 
+                        "loaders_type": "n2-highmem-2" ,
                         "cidr": "10.0.0.0/16", 
-                        "az_mode": "single-az"},
+                        "az_mode": "multi-az"},
         #     "us-east2": {"nodes": 3, 
         #                 "scylla_node_type": "n2-highmem-2" , 
         #                 "disk_size_gb" : 350, #Only relevant for GCP
@@ -21,7 +21,7 @@
         },
         key_pair_name : "ricardo-terraform",  #Only Relevant for AWS
         path_to_key : "~/Downloads/ricardo-terraform.pub",
-        monitoring_type : "m5.large",
+        monitoring_type : "n2-highmem-2",
         cassandra-stress: {
                 "num_threads" : 64, "num_of_ops": "1000000", "throttle" : "21000/s" , "ratio" : "1:4", "template" : "ott-audio-streaming"
         }

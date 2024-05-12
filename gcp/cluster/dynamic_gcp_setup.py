@@ -132,6 +132,7 @@ def create_infrastructure(config):
 
 
     for region, details in config['regions'].items():
+        first_region = next(iter(config['regions']))
         # Ensure provider for each region (if needed, else move this outside the loop)
         ts += provider.google(project=config['gcp_project_id'], region=region)
 
@@ -160,18 +161,127 @@ def create_infrastructure(config):
             ts += subnetwork
 
             # Create nodes in this subnetwork
-            for j in range(details['nodes']):
+            for idx,j in enumerate(range(details['nodes'])):
+                print(idx,j)
                 zone_index = j % az_count
-                node_name = f"{config['cluster_name']}-scylla-node-{region}-{j}"
+                
                 disk_size_gb = details.get('disk_size_gb', 0)
                 num_local_ssds = math.ceil(disk_size_gb / 375)
                 disks = [{"device_name": f"local-ssd-{k}", "interface": "NVME"} for k in range(num_local_ssds)]
+                #seed_name = []
+                #print(j,first_region,region)
+                if idx == 0 and region == first_region:
+                    node_name = f"{config['cluster_name']}-scylla-node-{region}-{j}-seed"
+                    seed_name = node_name
+                    #print("BINGO")
+                    metadata = {
+                        "ssh-keys": ssh_keys_metadata,
+                        "user-data": json.dumps({
+                            "scylla_yaml": {
+                                "cluster_name": config['cluster_name']
+                            },
+                            "start_scylla_on_first_boot": "true"
+                        })
+                    }
 
+                    labels = {
+                        "name": f"{config['cluster_name']}-{region}-scylla-node-{j}",
+                        "type": "scylla",
+                        "project": config['cluster_name'],
+                        "group" : "seed"
+                    }
+
+                    seed_instance = resource.google_compute_instance(
+                        node_name,
+                        name=node_name,
+                        project=config['gcp_project_id'],
+                        machine_type=details['scylla_node_type'],
+                        zone=azs[zone_index],
+                        min_cpu_platform="Intel Ice Lake",
+                        allow_stopping_for_update=True,
+                        network_interface=[{
+                            "network": network_name,
+                            "subnetwork": subnetwork_name,
+                            "access_config": [{}],  # For external IP if required
+                        }],
+                        boot_disk=[{
+                            "initialize_params": {
+                                "image": f"projects/scylla-images/global/images/scylladb-enterprise-{config['scylla_version']}",
+                            },
+                        }],
+                        scratch_disk=disks,
+                        labels=labels,
+                        metadata=metadata,
+                        service_account={
+                            "email": "default",
+                            "scopes": ["https://www.googleapis.com/auth/cloud-platform"]
+                        },
+                        depends_on=[f"google_compute_subnetwork.{subnetwork_name}"]
+                    )
+                    ts += seed_instance
+                    
+
+                else:
+                    node_name = f"{config['cluster_name']}-scylla-node-{region}-{j}"
+                    seed_ip_reference = f"${{google_compute_instance.{seed_name}.network_interface[0].network_ip}}"
+                    print(seed_ip_reference)
+                    metadata = {
+                        "ssh-keys": ssh_keys_metadata,
+                        "user-data": json.dumps({
+                            "scylla_yaml": {
+                                "cluster_name": config['cluster_name'],
+                                "seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider",
+                                 'parameters': [{'seeds': seed_ip_reference}]}]
+                            },
+                            "start_scylla_on_first_boot": "false"
+                        })
+                    }
+
+                    labels = {
+                        "name": f"{config['cluster_name']}-{region}-scylla-node-{j}",
+                        "type": "scylla",
+                        "project": config['cluster_name'],
+                        "group" : "nonseed"
+                    }
+
+
+                    node_instance = resource.google_compute_instance(
+                        node_name,
+                        name=node_name,
+                        project=config['gcp_project_id'],
+                        machine_type=details['scylla_node_type'],
+                        zone=azs[zone_index],
+                        min_cpu_platform="Intel Ice Lake",
+                        allow_stopping_for_update=True,
+                        network_interface=[{
+                            "network": network_name,
+                            "subnetwork": subnetwork_name,
+                            "access_config": [{}],  # For external IP if required
+                        }],
+                        boot_disk=[{
+                            "initialize_params": {
+                                "image": f"projects/scylla-images/global/images/scylladb-enterprise-{config['scylla_version']}",
+                            },
+                        }],
+                        scratch_disk=disks,
+                        labels=labels,
+                        metadata=metadata,
+                        service_account={
+                            "email": "default",
+                            "scopes": ["https://www.googleapis.com/auth/cloud-platform"]
+                        },
+                        depends_on=[f"google_compute_subnetwork.{subnetwork_name}"]
+                    )
+                    ts += node_instance
+
+            for j in range(details['loaders']):
+                zone_index = j % az_count
+                node_name = f"{config['cluster_name']}-loader-node-{region}-{j}"
                 node_instance = resource.google_compute_instance(
                     node_name,
                     name=node_name,
                     project=config['gcp_project_id'],
-                    machine_type=details['scylla_node_type'],
+                    machine_type=details['loaders_type'],
                     zone=azs[zone_index],
                     min_cpu_platform="Intel Ice Lake",
                     allow_stopping_for_update=True,
@@ -185,13 +295,13 @@ def create_infrastructure(config):
                             "image": f"projects/scylla-images/global/images/scylladb-enterprise-{config['scylla_version']}",
                         },
                     }],
-                    scratch_disk=disks,
                     labels={
-                        "name": f"{config['cluster_name']}-{region}-scylla-node-{j}",
-                        "type": "scylla",
+                        "name": f"{config['cluster_name']}-{region}-loader-node-{j}",
+                        "type": "loader",
                         "project": config['cluster_name'],
                     },
                     metadata={'ssh-keys': ssh_keys_metadata},
+
                     service_account={
                         "email": "default",
                         "scopes": ["https://www.googleapis.com/auth/cloud-platform"]
@@ -199,7 +309,6 @@ def create_infrastructure(config):
                     depends_on=[f"google_compute_subnetwork.{subnetwork_name}"]
                 )
                 ts += node_instance
-
 
     first_region = next(iter(config['regions']))  # Get the first region key from the dictionary
 
