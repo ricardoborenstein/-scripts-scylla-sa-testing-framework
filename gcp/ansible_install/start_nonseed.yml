@@ -1,4 +1,6 @@
+
 ---
+
 - name: Restart Scylla Server on NonSeed Nodes
   hosts: scylla_nonseed
   become: yes  # This playbook needs to run with sudo to manage system services
@@ -13,7 +15,7 @@
         sudo systemctl start scylla-server
         sleep 10  # Initial delay to let Scylla start up
         until systemctl status scylla-server | grep -q "Status: \"serving\""; do sleep 10; done
-      async: 400  # Set an overall timeout for the operation (e.g., 700 seconds)
+      async: 1400  # Set an overall timeout for the operation (e.g., 700 seconds)
       poll: 10    # Check every 10 seconds
       throttle: 1
       changed_when: false

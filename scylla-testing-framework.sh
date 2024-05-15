@@ -81,6 +81,7 @@ aws_config(){
     python3 configure_vars_ansible.py
     # Install Scylla
     set -e
+    ansible-playbook wait_for_seed.yml
     ansible-playbook start_other_dcs.yml
     ansible-playbook restart_nonseed.yml
     ansible-playbook get_monitoring_config.yml
@@ -124,6 +125,7 @@ gcp_setup() {
     terraform apply -auto-approve
     set +e
     #gcp_config()
+    sleep 60
     echo "System is ready for testing."
 }
 
@@ -146,6 +148,7 @@ gcp_config(){
     python3 configure_vars_ansible.py
     # Install Scylla
     set -e
+    ansible-playbook wait_for_seed.yml
     ansible-playbook start_other_dcs.yml
     ansible-playbook start_nonseed.yml
     ansible-playbook get_monitoring_config.yml

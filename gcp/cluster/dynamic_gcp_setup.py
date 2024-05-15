@@ -7,6 +7,7 @@ import yaml
 import os
 import math
 from google.cloud import compute_v1
+import ipaddress
 
 # Define the ingress rules as a local variable
 ingress_rules = [
@@ -50,6 +51,35 @@ def list_available_zones(project_id, region):
     print(f"Available zones in the region {region}:")
     request = compute_v1.ListZonesRequest(project=project_id, filter=f"name:{region}-*")
     return [zone.name for zone in client.list(request=request)]  # This ensures the list contains only strings.
+
+
+
+def calculate_subnets(cidr, az_count):
+    """
+    Generate sequential subnets from a given CIDR block based on the number of AZs.
+
+    Args:
+    cidr (str): The base CIDR block from which to generate subnets.
+    az_count (int): The number of subnets to generate.
+
+    Returns:
+    list: A list of CIDR strings for each generated subnet.
+    """
+    base_network = ipaddress.ip_network(cidr)
+    # Determine how many bits need to be added to the subnet prefix to accommodate the number of AZs
+    subnet_bits = az_count.bit_length() - 1
+    new_prefix = base_network.prefixlen + subnet_bits
+
+    # Ensure the new prefix does not exceed practical subnet limits (e.g., no smaller than /28 for IPv4)
+    if new_prefix > 28:
+        raise ValueError("The subnet division is too fine. Reduce the number of AZs or use a larger base CIDR block.")
+
+    try:
+        subnets = list(base_network.subnets(new_prefix=new_prefix))
+        return [str(subnet) for subnet in subnets[:az_count]]
+    except ValueError:
+        raise ValueError("Not enough subnets can be generated with the given CIDR block and new prefix length.")
+
 
 
 def add_firewall_rules(ts, ingress_rules, egress_rules, network):
@@ -105,6 +135,7 @@ def create_infrastructure(config):
 
 
     for region in config['regions']:
+        print(region)
         ts += provider.google(project=config['gcp_project_id'],region=region,alias=region)
         
     # Determine network type based on az_mode across all regions (simplified assumption)
@@ -134,7 +165,7 @@ def create_infrastructure(config):
     for region, details in config['regions'].items():
         first_region = next(iter(config['regions']))
         # Ensure provider for each region (if needed, else move this outside the loop)
-        ts += provider.google(project=config['gcp_project_id'], region=region)
+        # ts += provider.google(project=config['gcp_project_id'], region=region)
 
         azs = list_available_zones(config['gcp_project_id'], region)
         print(azs)
@@ -145,14 +176,17 @@ def create_infrastructure(config):
         else:
             # Use only one zone, typically the first available
             az_count = 1
+
+        subnets = calculate_subnets(details['cidr'], az_count)
+        print(subnets)
         # Create subnetworks and instances
-        for i in range(az_count):
+        for i, subnet_cidr in enumerate(subnets):
             subnetwork_name = f"{config['cluster_name']}-subnet-{region}-{i}"
             subnetwork = resource.google_compute_subnetwork(
                 subnetwork_name,
                 project=config['gcp_project_id'],
                 name=subnetwork_name,
-                ip_cidr_range=f"10.0.{i}.0/24",
+                ip_cidr_range=subnet_cidr,
                 region=region,
                 network=network_name,
                 private_ip_google_access=True,
@@ -160,9 +194,49 @@ def create_infrastructure(config):
             )
             ts += subnetwork
 
+            print(i)
+            if i == 0 and region == first_region:
+                monitoring_instance_id = f"{config['cluster_name']}-monitoring-{region}"
+            
+                monitoring_tags = {
+                "name": f"{config['cluster_name']}-{region}-monitoring",
+                "type": "monitoring",
+                "project": config['cluster_name']
+                }
+            
+                monitoring_instance = resource.google_compute_instance(monitoring_instance_id,
+                    name=monitoring_instance_id,
+                    project = config['gcp_project_id'],
+                    machine_type=config['monitoring_type'],  # `monitoring_type` should be defined in your config for the region
+                    allow_stopping_for_update = "true",
+
+                    zone=azs[i % len(azs)],  # Choose the zone, generally region followed by '-a', '-b', etc.
+                    network_interface=[{
+                    "network": network_name,
+                    "subnetwork": f"{subnetwork_name}",
+                    "subnetwork_project": config['gcp_project_id'],
+                    "access_config": [{}],  # For external IP
+                    }], # This section assigns a public IP
+                    boot_disk=[{
+                        "initialize_params": {
+                            "image": f"projects/ubuntu-os-cloud/global/images/family/ubuntu-minimal-2204-lts"
+                        }
+                    }],
+                    labels=monitoring_tags,
+                    metadata={'ssh-keys': ssh_keys_metadata,},            
+
+                    service_account={
+                        "email": "default",
+                        "scopes": ["https://www.googleapis.com/auth/cloud-platform"]
+                    },
+                    depends_on=[f"google_compute_subnetwork.{subnetwork_name}"]
+                )
+                
+                ts += monitoring_instance
+
             # Create nodes in this subnetwork
             for idx,j in enumerate(range(details['nodes'])):
-                print(idx,j)
+                #print(idx,j)
                 zone_index = j % az_count
                 
                 disk_size_gb = details.get('disk_size_gb', 0)
@@ -180,12 +254,12 @@ def create_infrastructure(config):
                             "scylla_yaml": {
                                 "cluster_name": config['cluster_name']
                             },
-                            "start_scylla_on_first_boot": "true"
+                            "start_scylla_on_first_boot": True
                         })
                     }
 
                     labels = {
-                        "name": f"{config['cluster_name']}-{region}-scylla-node-{j}",
+                        "name": f"{node_name}",
                         "type": "scylla",
                         "project": config['cluster_name'],
                         "group" : "seed"
@@ -202,6 +276,7 @@ def create_infrastructure(config):
                         network_interface=[{
                             "network": network_name,
                             "subnetwork": subnetwork_name,
+                            "subnetwork_project" :config['gcp_project_id'],
                             "access_config": [{}],  # For external IP if required
                         }],
                         boot_disk=[{
@@ -224,7 +299,7 @@ def create_infrastructure(config):
                 else:
                     node_name = f"{config['cluster_name']}-scylla-node-{region}-{j}"
                     seed_ip_reference = f"${{google_compute_instance.{seed_name}.network_interface[0].network_ip}}"
-                    print(seed_ip_reference)
+                    #print(seed_ip_reference)
                     metadata = {
                         "ssh-keys": ssh_keys_metadata,
                         "user-data": json.dumps({
@@ -233,7 +308,7 @@ def create_infrastructure(config):
                                 "seed_provider": [{"class_name": "org.apache.cassandra.locator.SimpleSeedProvider",
                                  'parameters': [{'seeds': seed_ip_reference}]}]
                             },
-                            "start_scylla_on_first_boot": "false"
+                            "start_scylla_on_first_boot": False
                         })
                     }
 
@@ -256,6 +331,7 @@ def create_infrastructure(config):
                         network_interface=[{
                             "network": network_name,
                             "subnetwork": subnetwork_name,
+                            "subnetwork_project" :config['gcp_project_id'],
                             "access_config": [{}],  # For external IP if required
                         }],
                         boot_disk=[{
@@ -288,6 +364,7 @@ def create_infrastructure(config):
                     network_interface=[{
                         "network": network_name,
                         "subnetwork": subnetwork_name,
+                        "subnetwork_project" :config['gcp_project_id'],
                         "access_config": [{}],  # For external IP if required
                     }],
                     boot_disk=[{
@@ -310,49 +387,8 @@ def create_infrastructure(config):
                 )
                 ts += node_instance
 
-    first_region = next(iter(config['regions']))  # Get the first region key from the dictionary
+           # Create monitoring instance only for the first region
 
-    for region, details in config['regions'].items():
-        if region == first_region:
-            # Create monitoring instance only for the first region
-            monitoring_instance_id = f"{config['cluster_name']}-monitoring-{region}"
-            
-
-            monitoring_tags = {
-                "name": f"{config['cluster_name']}-{region}-monitoring",
-                "type": "monitoring",
-                "project": config['cluster_name']
-            }
-            
-            monitoring_instance = resource.google_compute_instance(monitoring_instance_id,
-                name=monitoring_instance_id,
-                project = config['gcp_project_id'],
-                machine_type=config['monitoring_type'],  # `monitoring_type` should be defined in your config for the region
-                allow_stopping_for_update = "true",
-
-                zone=azs[i % len(azs)],  # Choose the zone, generally region followed by '-a', '-b', etc.
-                network_interface=[{
-                "network": network_name,
-                    "subnetwork": f"{subnetwork_name}",
-                "subnetwork_project": config['gcp_project_id'],
-                "access_config": [{}],  # For external IP
-                }], # This section assigns a public IP
-                boot_disk=[{
-                    "initialize_params": {
-                        "image": f"projects/ubuntu-os-cloud/global/images/family/ubuntu-minimal-2204-lts"
-                    }
-                }],
-                labels=monitoring_tags,
-                metadata={'ssh-keys': ssh_keys_metadata,},            
-
-                service_account={
-                    "email": "default",
-                    "scopes": ["https://www.googleapis.com/auth/cloud-platform"]
-                },
-                depends_on=[f"google_compute_subnetwork.{subnetwork_name}"] 
-            )
-            
-            ts += monitoring_instance
  
     return ts
 
