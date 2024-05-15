@@ -75,6 +75,12 @@ To destroy the Scylla environment on GCP:
 ./scylla-testing-framework.sh gcp destroy
 ```
 
+To start the Benchmark on GCP:
+
+``` bash
+./scylla-testing-framework.sh gcp benchmark
+```
+
 ### Configuration Files
 `variables.yml`
 This YAML file contains all the configurable parameters required by the deployment script. Adjust the settings in variables.yml to tailor the deployment to your needs. Below is an example highlighting some of the key parameters:

@@ -351,6 +351,13 @@ def create_infrastructure(config):
                     ts += node_instance
 
             for j in range(details['loaders']):
+                metadata = {
+                        "ssh-keys": ssh_keys_metadata,
+                        "user-data": json.dumps({
+                            "start_scylla_on_first_boot": False
+                        })
+                    }
+
                 zone_index = j % az_count
                 node_name = f"{config['cluster_name']}-loader-node-{region}-{j}"
                 node_instance = resource.google_compute_instance(
@@ -377,7 +384,7 @@ def create_infrastructure(config):
                         "type": "loader",
                         "project": config['cluster_name'],
                     },
-                    metadata={'ssh-keys': ssh_keys_metadata},
+                    metadata=metadata,
 
                     service_account={
                         "email": "default",
