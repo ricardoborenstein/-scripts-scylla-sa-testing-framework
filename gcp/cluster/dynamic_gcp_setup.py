@@ -366,7 +366,7 @@ def create_infrastructure(config):
                     project=config['gcp_project_id'],
                     machine_type=details['loaders_type'],
                     zone=azs[zone_index],
-                    min_cpu_platform="Intel Ice Lake",
+                    #min_cpu_platform="Intel Ice Lake",
                     allow_stopping_for_update=True,
                     network_interface=[{
                         "network": network_name,
