@@ -44,7 +44,7 @@ When cloning the repository, also clone the submodules:
 
 
 ```bash
-git clone --recurse-submodules https://github.com/ricardoborenstein/scylla-sa-testing-framework.git
+git clone --recurse-submodules --branch ycsb https://github.com/ricardoborenstein/scylla-sa-testing-framework.git
 ```
 
 

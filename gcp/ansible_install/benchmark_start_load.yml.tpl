@@ -1,5 +1,5 @@
 - name: Initiate ingestion for benchmark
-  hosts: gcp_loader
+  hosts: loader
   tasks:
   {{ insert_populate_tasks_here }}
   - name: Start cassandra-stress population on all loaders in parallel

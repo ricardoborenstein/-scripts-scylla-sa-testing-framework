@@ -5,7 +5,7 @@
         gcp_project_id : "skilled-adapter-452", #Only relevant for GCP
         regions: {
             "us-east1": {"nodes": 3, 
-                        "scylla_node_type": "n2-highmem-2" , 
+                        "scylla_node_type": "n2-highmem-4" , 
                         "disk_size_gb" : 700, #Only relevant for GCP
                         "loaders": 1 , 
                         "loaders_type": "n2-highmem-2" ,
@@ -21,8 +21,15 @@
         },
         key_pair_name : "ricardo-terraform",  #Only Relevant for AWS
         path_to_key : "~/Downloads/ricardo-terraform.pub",
+        path_to_private : "~/Downloads/ricardo-terraform.pem",
         monitoring_type : "n2-highmem-2",
-        cassandra-stress: {
-                "num_threads" : 64, "num_of_ops": "1000000", "throttle" : "21000/s" , "ratio" : "1:4", "template" : "ott-audio-streaming"
+        ycsb: {
+                "num_threads" : 16,  # Recommended 16 threads per vCPU
+                "num_of_rows": "10000000", 
+                "throttle" : "12000", # Ops/sec 
+                "ratio" : "1:4", 
+                "template" : "ott-audio-streaming",
+                "scylla_login" : "",
+                "scylla_password": ""
         }
 }

@@ -18,8 +18,8 @@ compose:
 
 groups:
   scylla:   (labels['type'] is defined and labels['type'] == 'scylla')
-  gcp_loader: (labels['type'] is defined and labels['type'] == 'loader')
-  gcp_monitor: (labels['type'] is defined and labels['type'] == 'monitoring')
+  loader: (labels['type'] is defined and labels['type'] == 'loader')
+  monitor: (labels['type'] is defined and labels['type'] == 'monitoring')
   scylla_nonseed: (labels['group'] is defined and labels['group'] == 'nonseed')
   scylla_seed: (labels['group'] is defined and labels['group'] == 'seed')
   scylla_seed2: (labels['group'] is defined and labels['group'] == 'seed2')
