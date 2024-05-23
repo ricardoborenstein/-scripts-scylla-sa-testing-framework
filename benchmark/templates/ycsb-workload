@@ -1,0 +1,56 @@
+# Total number of records to be inserted in the database before running the workload.
+recordcount=1000000000
+
+# Total number of operations to be performed during the run phase.
+operationcount=1000000000
+
+# The class name of the workload to be run. This is typically the CoreWorkload class.
+workload=site.ycsb.workloads.CoreWorkload
+
+# Proportion of read operations among all operations.
+readproportion=0.5
+
+# Proportion of update operations among all operations.
+updateproportion=0.5
+
+# Proportion of insert operations among all operations. Set to 0 as we are not performing inserts in this workload.
+insertproportion=0
+
+# Proportion of scan operations among all operations. Set to 0 as we are not performing scans in this workload.
+scanproportion=0
+
+# Proportion of read-modify-write operations among all operations. Set to 0 as we are not performing read-modify-write in this workload.
+readmodifywriteproportion=0
+
+# Distribution of request patterns. Options are: uniform, zipfian, latest, hotspot.
+requestdistribution=zipfian
+
+# Distribution of field lengths. Options are: constant, uniform, zipfian.
+fieldlengthdistribution=uniform
+
+# Minimum length of a field.
+minfieldlength=100
+
+# Length of a field (if fieldlengthdistribution is constant).
+fieldlength=100
+
+# Number of fields in a record.
+fieldcount=10
+
+# The starting key for inserts.
+insertstart=0
+
+# The sequence for generating keys. Options are: hashed, order, exponential, zipfian.
+keysequence=hashed
+
+# Whether to read all fields or just one. Options are: true, false.
+readallfields=true
+
+# Whether to write all fields or just one. Options are: true, false.
+writeallfields=false
+
+# Whether to enable data integrity checking. Options are: true, false.
+dataintegrity=false
+
+# Target throughput in operations per second (ops/sec)
+target=1

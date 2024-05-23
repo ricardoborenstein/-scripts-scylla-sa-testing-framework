@@ -69,8 +69,8 @@ inventory_content = load_template_file_inventory(ANSIBLE_INVENTORY_TEMPLATE_FILE
 with open(ANSIBLE_INVENTORY_OUTPUT_FILE, "w") as f:
     f.write(inventory_content)
     
-# content = load_template_file(ANSIBLE_CONFIG_TEMPLATE_FILE, variables)
-# write_output_file(ANSIBLE_CONFIG_OUTPUT_FILE, content)
+content = load_template_file(ANSIBLE_CONFIG_TEMPLATE_FILE, variables)
+write_output_file(ANSIBLE_CONFIG_OUTPUT_FILE, content)
 
 content = load_template_file(ANSIBLE_GET_MONITORING_CONFIG_FILE, variables)
 write_output_file(ANSIBLE_GET_MONITORING_CONFIG_OUTPUT_FILE, content)

@@ -1,6 +1,6 @@
 ---
 - name: Install Scylla on nodes
-  hosts: scylla
+  hosts: scylla_seed
   any_errors_fatal: true
   tasks:
     - name: Get Scylla Monitoring scripts

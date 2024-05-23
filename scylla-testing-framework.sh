@@ -133,11 +133,11 @@ gcp_setup() {
 gcp_benchmark() {
     cd ./benchmark/
     echo "Configuring stress profile"
-    python3 gcp_configure_stress_profile.py
+    python3 config_ycsb.py
     # Load data and run benchmark
     cd ../gcp/ansible_install
     echo "Starting benchmark..."
-    ansible-playbook benchmark_start_load.yml
+    ansible-playbook ycsb.yml
     # Add additional benchmark commands here
 }
 

@@ -49,7 +49,7 @@ def list_available_zones(project_id, region):
 
     # List zones in the specified region
     print(f"Available zones in the region {region}:")
-    request = compute_v1.ListZonesRequest(project=project_id, filter=f"name:{region}-*")
+    request = compute_v1.ListZonesRequest(project=project_id, filter="name:{}-*".format(region))
     return [zone.name for zone in client.list(request=request)]  # This ensures the list contains only strings.
 
 
@@ -86,7 +86,7 @@ def add_firewall_rules(ts, ingress_rules, egress_rules, network):
     # Process ingress rules
     for rule in ingress_rules:
         if isinstance(rule, dict) and 'description' in rule:
-            rule_name = f"{config["cluster_name"]}-" + rule['description'].lower().replace(' ', '-') + '-ingress'
+            rule_name = config["cluster_name"] + "-" + rule['description'].lower().replace(' ', '-') + '-ingress'
             firewall_rule = resource.google_compute_firewall(
                 rule_name,
                 name= rule_name,
